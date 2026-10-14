@@ -1,0 +1,70 @@
+name: comic_realm
+description: 漫境 ComicRealm - 支持多图源的开源漫画阅读器，支持 Android / iOS / Windows。
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # 网络请求与 HTML 解析
+  dio: ^5.4.0
+  cookie_jar: ^4.0.8
+  dio_cookie_manager: ^3.1.1
+  html: ^0.15.4
+  # 图源规则中的 JS 执行
+  flutter_js: ^0.8.0
+  # 本地存储
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.2
+  shared_preferences: ^2.2.2
+  # 文件下载与管理
+  path: ^1.9.0
+  # 状态管理
+  provider: ^6.1.2
+  # 图片缓存
+  cached_network_image: ^3.3.1
+  # 二维码扫描
+  mobile_scanner: ^5.0.1
+  # 文件选择
+  file_picker: ^8.0.0
+  # 应用更新
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.2.5
+  # WebView 用于过 Cloudflare
+  webview_flutter: ^4.7.0
+  # 权限
+  permission_handler: ^11.3.1
+  # 进度条 / 下载通知
+  flutter_local_notifications: ^17.0.0
+  # 工具
+  crypto: ^3.0.3
+  convert: ^3.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  windows:
+    generate: true
+  image_path: "assets/icons/app_icon.jpg"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/sources/

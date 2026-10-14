@@ -1,0 +1,34 @@
+MIT License
+
+Copyright (c) 2026 ComicRealm Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+免责声明 / Disclaimer
+
+本软件为开源漫画阅读器，仅提供图源解析与本地阅读功能，本身不存储、
+不上传任何漫画内容。所有漫画作品的版权归原作者及图源网站所有。
+
+本软件仅供个人学习交流使用，严禁用于任何商业用途。使用者应遵守所在
+国家或地区的法律法规，因使用本软件产生的一切法律责任由使用者自行承担。
+
+如本软件的任何内容侵犯了您的合法权益，请通过 GitHub Issue 联系开发者，
+我们将在第一时间删除相关内容。
