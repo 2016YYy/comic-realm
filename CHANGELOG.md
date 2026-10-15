@@ -7,6 +7,20 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-16
+
+### 新增
+
+- 图源管理新增「检测有效性」功能：
+  - 单个图源：点击列表项右侧菜单 → 检测有效性，失效自动删除、有效自动更新规则
+  - 全部图源：AppBar 新增一键检测按钮，批量检测所有图源并汇总结果（有效数 / 删除数 / 更新数 / 失效详情）
+  - 检测逻辑：用 8 秒超时请求源站，DNS 失败 / 连接拒绝 / 超时判定为失效；有效时若 `bookSourceUrl` 为 JSON 地址则重新下载并更新规则
+- 导入图源的二维码页新增「从相册选择」按钮，可从系统相册选取含二维码的图片并自动识别导入
+
+### 变更
+
+- 图源列表项的删除按钮改为 PopupMenu（含「检测有效性」「删除」两个子选项）
+
 ## [1.1.1] - 2026-10-16
 
 ### 修复
@@ -123,7 +137,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/2016YYy/comic-realm/compare/v1.1.0...v1.1.1
 [1.0.4]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/2016YYy/comic-realm/compare/v1.0.2...v1.0.3

@@ -1,9 +1,49 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' as io;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/database.dart';
+import '../core/http_client.dart';
 import '../core/source_engine.dart';
 import '../models/source.dart';
+import 'comic_service.dart';
+
+/// 单图源检测结果。
+class DetectResult {
+  /// 图源是否仍然有效（网络可达）。
+  final bool valid;
+
+  /// 失效时的友好错误信息。
+  final String? error;
+
+  /// 是否成功自动更新了规则。
+  final bool updated;
+
+  DetectResult({required this.valid, this.error, this.updated = false});
+}
+
+/// 批量检测汇总。
+class DetectSummary {
+  final int total;
+  final int valid;
+  final int deleted;
+  final int updated;
+  final List<DetectFailure> failures;
+
+  DetectSummary({
+    required this.total,
+    required this.valid,
+    required this.deleted,
+    required this.updated,
+    required this.failures,
+  });
+}
+
+class DetectFailure {
+  final String sourceName;
+  final String error;
+  DetectFailure(this.sourceName, this.error);
+}
 
 class SourceService extends ChangeNotifier {
   final SourceEngine engine = SourceEngine();
@@ -57,7 +97,7 @@ class SourceService extends ChangeNotifier {
 
   /// 从本地文件导入图源
   Future<List<ComicSource>> importFromFile(String path) async {
-    final bytes = await File(path).readAsBytes();
+    final bytes = await io.File(path).readAsBytes();
     return importFromBytes(bytes);
   }
 
@@ -145,37 +185,37 @@ class SourceService extends ChangeNotifier {
     // zlib 头：0x78
     if (bytes[0] == 0x78) {
       try {
-        return ZLibCodec().decode(bytes);
+        return io.ZLibCodec().decode(bytes);
       } catch (_) {}
       try {
-        return ZLibCodec(raw: true).decode(bytes);
+        return io.ZLibCodec(raw: true).decode(bytes);
       } catch (_) {}
     }
     // gzip 头：0x1f 0x8b
     if (bytes[0] == 0x1f && bytes[1] == 0x8b) {
       try {
-        return GZipCodec().decode(bytes);
+        return io.GZipCodec().decode(bytes);
       } catch (_) {}
     }
     // 兜底：原始 deflate
     try {
-      return ZLibCodec(raw: true).decode(bytes);
+      return io.ZLibCodec(raw: true).decode(bytes);
     } catch (_) {}
     try {
-      return ZLibCodec().decode(bytes);
+      return io.ZLibCodec().decode(bytes);
     } catch (_) {}
     return null;
   }
 
   Future<List<int>> _downloadBytes(String url) async {
-    final client = HttpClient();
+    final client = io.HttpClient();
     try {
       final request = await client.getUrl(Uri.parse(url));
-      request.headers.set(HttpHeaders.userAgentHeader,
+      request.headers.set(io.HttpHeaders.userAgentHeader,
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36');
       final response = await request.close();
       if (response.statusCode >= 400) {
-        throw HttpException('HTTP ${response.statusCode}', uri: Uri.parse(url));
+        throw io.HttpException('HTTP ${response.statusCode}', uri: Uri.parse(url));
       }
       return await consolidateHttpClientResponseBytes(response);
     } finally {
@@ -195,6 +235,150 @@ class SourceService extends ChangeNotifier {
     source.enable = !source.enable;
     await source.save();
     notifyListeners();
+  }
+
+  // -------------------- 图源有效性检测 --------------------
+
+  /// 判断异常是否为网络级错误（说明源站不可达）。
+  static bool isNetworkError(Object e) {
+    final msg = e.toString();
+    return msg.contains('Failed host lookup') ||
+        msg.contains('SocketException') ||
+        msg.contains('Connection timed out') ||
+        msg.contains('Connection refused') ||
+        msg.contains('connectionTimeout') ||
+        msg.contains('receiveTimeout') ||
+        msg.contains('connectionError');
+  }
+
+  /// 检测单个图源是否有效。
+  ///
+  /// - 若源站不可达（DNS / 连接拒绝 / 超时），返回 `valid: false`
+  /// - 若可达，尝试从 [ComicSource.bookSourceUrl] 重新下载规则并更新
+  ///   （仅当该地址返回合法图源 JSON 时才更新），返回 `valid: true, updated: true/false`
+  Future<DetectResult> detectSource(ComicSource source) async {
+    final dio = HttpClient().dio;
+    // 用较短超时快速检测源站是否可达
+    try {
+      await dio.getUri(
+        Uri.parse(source.bookSourceUrl),
+        options: dioOptions(
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          validateStatus: (_) => true,
+        ),
+      );
+    } catch (e) {
+      if (isNetworkError(e)) {
+        return DetectResult(valid: false, error: ComicService.friendlyError(e));
+      }
+      // 非网络级错误（如 4xx/5xx），源站仍在运行，视为有效
+    }
+
+    // 源站可达，尝试自动更新规则
+    final updated = await _tryUpdateSource(source);
+    return DetectResult(valid: true, updated: updated);
+  }
+
+  /// 检测并处理单个图源：失效则删除，有效则更新。
+  ///
+  /// 返回检测结果，调用方可据此提示用户。
+  Future<DetectResult> detectAndHandle(ComicSource source) async {
+    final result = await detectSource(source);
+    if (!result.valid) {
+      await removeSource(source);
+    }
+    return result;
+  }
+
+  /// 批量检测所有图源：失效自动删除，有效自动更新。
+  ///
+  /// 返回汇总信息（含被删除 / 更新的数量与失败详情）。
+  Future<DetectSummary> detectAndCleanAll() async {
+    final sources = allSources;
+    var valid = 0;
+    var deleted = 0;
+    var updated = 0;
+    final failures = <DetectFailure>[];
+
+    for (final source in sources) {
+      final result = await detectSource(source);
+      if (result.valid) {
+        valid++;
+        if (result.updated) updated++;
+      } else {
+        deleted++;
+        failures.add(DetectFailure(source.bookSourceName, result.error ?? '未知错误'));
+        await AppDatabase.sources.delete(source.bookSourceUrl);
+      }
+    }
+    notifyListeners();
+    return DetectSummary(
+      total: sources.length,
+      valid: valid,
+      deleted: deleted,
+      updated: updated,
+      failures: failures,
+    );
+  }
+
+  /// 尝试从 [ComicSource.bookSourceUrl] 重新下载并更新图源规则。
+  ///
+  /// 仅当该地址返回合法的图源 JSON（单个对象或数组）时更新成功。
+  Future<bool> _tryUpdateSource(ComicSource source) async {
+    final url = source.bookSourceUrl;
+    if (url.isEmpty) return false;
+    // 仅对看起来像 JSON 地址的 URL 尝试更新，避免对普通首页误判
+    if (!_looksLikeJsonUrl(url)) return false;
+
+    try {
+      final bytes = await _downloadBytes(url);
+      final text = utf8.decode(bytes, allowMalformed: true);
+      dynamic data;
+      try {
+        data = jsonDecode(text);
+      } catch (_) {
+        return false;
+      }
+      // 兼容 { "bookSources": [...] } 包裹
+      if (data is Map && data['bookSources'] is List) {
+        data = data['bookSources'];
+      }
+      final list = data is List ? data : [data];
+      for (final item in list) {
+        if (item is! Map) continue;
+        final fresh = ComicSource.fromJson(Map<String, dynamic>.from(item));
+        // 只更新 bookSourceUrl 匹配的同一条源
+        if (fresh.bookSourceUrl == source.bookSourceUrl &&
+            fresh.bookSourceName.isNotEmpty) {
+          await AppDatabase.sources.put(source.bookSourceUrl, fresh);
+          return true;
+        }
+      }
+    } catch (_) {
+      // 更新失败不影响检测结果
+    }
+    return false;
+  }
+
+  bool _looksLikeJsonUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.json') ||
+        lower.contains('.json?') ||
+        lower.contains('/json/') ||
+        lower.contains('api');
+  }
+
+  Options dioOptions({
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+    bool Function(int?)? validateStatus,
+  }) {
+    return Options(
+      connectTimeout: connectTimeout,
+      receiveTimeout: receiveTimeout,
+      validateStatus: validateStatus,
+    );
   }
 
   /// 内置图源初始化。
