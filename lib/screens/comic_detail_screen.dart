@@ -69,7 +69,7 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = ComicService.friendlyError(e);
       });
     }
   }

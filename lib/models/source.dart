@@ -64,6 +64,9 @@ class ComicSource extends HiveObject {
   @HiveField(18)
   String ruleContentUrl;
 
+  @HiveField(24)
+  String ruleChapterUrl;
+
   @HiveField(19)
   String ruleBookContent;
 
@@ -99,6 +102,7 @@ class ComicSource extends HiveObject {
     this.ruleChapterList = '',
     this.ruleChapterName = '',
     this.ruleContentUrl = '',
+    this.ruleChapterUrl = '',
     this.ruleBookContent = '',
     this.ruleFindUrl = '',
     this.enable = true,
@@ -141,6 +145,7 @@ class ComicSource extends HiveObject {
       ruleChapterList: pick([json['ruleChapterList'], rToc['chapterList']]),
       ruleChapterName: pick([json['ruleChapterName'], rToc['chapterName']]),
       ruleContentUrl: pick([json['ruleContentUrl'], rToc['chapterUrl']]),
+      ruleChapterUrl: _str(json['ruleChapterUrl']),
       ruleBookContent: pick([json['ruleBookContent'], rContent['content']]),
       ruleFindUrl: _parseFindUrl(json),
       enable: json['enable'] is bool ? json['enable'] as bool : true,
@@ -229,6 +234,7 @@ class ComicSource extends HiveObject {
         'ruleChapterList': ruleChapterList,
         'ruleChapterName': ruleChapterName,
         'ruleContentUrl': ruleContentUrl,
+        'ruleChapterUrl': ruleChapterUrl,
         'ruleBookContent': ruleBookContent,
         'ruleFindUrl': ruleFindUrl,
         'enable': enable,

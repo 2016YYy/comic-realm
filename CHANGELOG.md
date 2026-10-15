@@ -7,6 +7,19 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-16
+
+### 修复
+
+- 修复导入图源后无法显示漫画内容、点击漫画无内容的问题
+- 源引擎新增 JSON 自动识别：当图源规则使用 JSONPath（如 `$.data.chapters.*`）而接口返回 JSON 时，自动解析为 Map/List，不再误当 HTML 解析导致结果为空
+- 新增 `ruleChapterUrl` 字段支持（Hive field 24），兼容 legado 图源的章节列表 URL 变换规则（`thisPage`、`thisPage@js:...`、相对地址），解决章节列表请求地址错误的问题
+- 网络异常改为友好中文提示：DNS 解析失败提示「该源站可能已失效」，超时 / 拒绝连接 / HTTP 错误码均有对应文案，不再直接暴露 DioException / SocketException 原文
+
+### 变更
+
+- 详情页与阅读器的错误提示统一使用 `ComicService.friendlyError()`
+
 ## [1.1.0] - 2026-10-16
 
 ### 新增
@@ -110,7 +123,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/2016YYy/comic-realm/compare/v1.1.0...v1.1.1
 [1.0.4]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/2016YYy/comic-realm/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/2016YYy/comic-realm/compare/v1.0.1...v1.0.2

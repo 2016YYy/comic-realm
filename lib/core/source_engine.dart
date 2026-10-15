@@ -58,19 +58,19 @@ class SourceEngine {
     final (_, headers) = RuleParser.splitHeader(comic.noteUrl);
     final html = await _http.getString(comic.noteUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
-    final doc = html_parser.parse(html);
+    final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: comic.noteUrl);
 
     comic.name = _ifEmpty(
-        await _evalString(source.ruleBookName, doc, env), comic.name);
+        await _evalString(source.ruleBookName, ctx, env), comic.name);
     comic.author = _ifEmpty(
-        await _evalString(source.ruleBookAuthor, doc, env), comic.author);
+        await _evalString(source.ruleBookAuthor, ctx, env), comic.author);
     comic.coverUrl = _ifEmpty(
-        await _evalString(source.ruleCoverUrl, doc, env), comic.coverUrl);
+        await _evalString(source.ruleCoverUrl, ctx, env), comic.coverUrl);
     comic.introduce = _ifEmpty(
-        await _evalString(source.ruleIntroduce, doc, env), comic.introduce);
+        await _evalString(source.ruleIntroduce, ctx, env), comic.introduce);
     comic.kind = _ifEmpty(
-        await _evalString(source.ruleBookKind, doc, env), comic.kind);
+        await _evalString(source.ruleBookKind, ctx, env), comic.kind);
     return comic;
   }
 
@@ -85,14 +85,16 @@ class SourceEngine {
     }
     if (ruleStr.trim().isEmpty) return [];
 
-    final (_, headers) = RuleParser.splitHeader(comic.noteUrl);
-    final html = await _http.getString(comic.noteUrl,
+    // 章节列表请求 URL：优先使用 ruleChapterUrl（支持 thisPage / @js），否则用详情页 URL
+    final chapterUrl = await _resolveChapterUrl(source, comic.noteUrl);
+    final (_, headers) = RuleParser.splitHeader(chapterUrl);
+    final html = await _http.getString(chapterUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
-    final doc = html_parser.parse(html);
-    final env = EvalEnv(raw: html, baseUrl: comic.noteUrl);
+    final ctx = _parseContext(html);
+    final env = EvalEnv(raw: html, baseUrl: chapterUrl);
 
     final parsed = RuleParser.parse(ruleStr);
-    final items = await _runParsed(parsed, doc, env);
+    final items = await _runParsed(parsed, ctx, env);
 
     var chapters = <Chapter>[];
     for (final item in items) {
@@ -115,10 +117,10 @@ class SourceEngine {
     final headers = parsed.headers;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
-    final doc = html_parser.parse(html);
+    final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapter.url);
 
-    final results = await _runParsed(parsed, doc, env);
+    final results = await _runParsed(parsed, ctx, env);
     final urls = <String>[];
     for (final r in results) {
       if (r is Element) {
@@ -152,10 +154,10 @@ class SourceEngine {
     final headers = parsed.headers;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
-    final doc = html_parser.parse(html);
+    final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapter.url);
 
-    final results = await _runParsed(parsed, doc, env);
+    final results = await _runParsed(parsed, ctx, env);
     final paragraphs = <String>[];
     for (final r in results) {
       final s = _stringify(r).trim();
@@ -169,6 +171,42 @@ class SourceEngine {
     return paragraphs.join('\n\n');
   }
 
+  /// 解析章节列表请求 URL。
+  ///
+  /// legado 图源的 `ruleChapterUrl` 支持：
+  /// - 空：使用详情页 URL
+  /// - `thisPage`：使用详情页 URL
+  /// - `thisPage@js:function(baseUrl){...}(baseUrl)`：对详情页 URL 应用 JS 变换
+  /// - 普通 URL：直接使用
+  Future<String> _resolveChapterUrl(ComicSource source, String noteUrl) async {
+    final rule = source.ruleChapterUrl.trim();
+    if (rule.isEmpty) return noteUrl;
+
+    // thisPage 关键字
+    if (rule == 'thisPage') return noteUrl;
+
+    // thisPage@js:...
+    if (rule.startsWith('thisPage')) {
+      final jsIdx = rule.indexOf('@js:');
+      if (jsIdx > 0) {
+        final jsCode = rule.substring(jsIdx + 4);
+        final result = await _js.evalRule(jsCode, baseUrl: noteUrl);
+        if (result.isNotEmpty && result != 'null' && result != 'undefined') {
+          // 去掉 JSON 引号
+          var url = result.replaceAll('"', '').replaceAll("'", '');
+          if (url.startsWith('http')) return url;
+        }
+      }
+      return noteUrl;
+    }
+
+    // 普通 URL（支持相对地址）
+    if (rule.startsWith('http://') || rule.startsWith('https://')) {
+      return rule;
+    }
+    return _http.absoluteUrl(noteUrl, rule);
+  }
+
   // -------------------- 列表解析 --------------------
 
   Future<List<Comic>> _parseComicList(
@@ -178,9 +216,9 @@ class SourceEngine {
     required String key,
     required int page,
   }) async {
-    final doc = html_parser.parse(html);
+    final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: baseUrl, key: key, page: page);
-    final items = await _runParsed(RuleParser.parse(source.ruleSearchList), doc, env);
+    final items = await _runParsed(RuleParser.parse(source.ruleSearchList), ctx, env);
 
     final comics = <Comic>[];
     for (final item in items) {
@@ -353,6 +391,7 @@ class SourceEngine {
       // 无规则时，若 ctx 是元素则取文本
       if (ctx is Element) return ctx.text.trim();
       if (ctx is String) return ctx;
+      if (ctx is Map) return _stringify(ctx);
       return '';
     }
     final list = await _runParsed(RuleParser.parse(rule), ctx, env);
@@ -367,6 +406,21 @@ class SourceEngine {
     if (v is Document) return v.documentElement?.outerHtml ?? '';
     if (v is Map || v is List) return jsonEncode(v);
     return v.toString();
+  }
+
+  /// 自动识别响应内容类型：
+  /// - 若为 JSON（以 `{` 或 `[` 开头且可解析），返回解析后的 Map/List，供 JSONPath 规则使用
+  /// - 否则解析为 HTML Document，供 CSS/XPath 规则使用
+  dynamic _parseContext(String raw) {
+    final trimmed = raw.trimLeft();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return jsonDecode(trimmed);
+      } catch (_) {
+        // 解析失败，回退到 HTML
+      }
+    }
+    return html_parser.parse(raw);
   }
 
   List<dynamic> _interpretJs(String res) {

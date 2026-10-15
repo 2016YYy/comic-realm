@@ -39,7 +39,7 @@ class ComicService extends ChangeNotifier {
         final list = await engine.search(source, keyword, page: page);
         results.addAll(list);
       } catch (e) {
-        errors.add(SourceError(source.bookSourceName, _friendlyError(e)));
+        errors.add(SourceError(source.bookSourceName, friendlyError(e)));
       }
     }
     return SearchOutcome(results, errors);
@@ -96,10 +96,48 @@ class ComicService extends ChangeNotifier {
 
   List<Comic> get favorites => AppDatabase.favorites.values.toList();
 
-  String _friendlyError(Object e) {
-    var msg = e.toString();
-    msg = msg.replaceFirst('Exception: ', '');
-    if (msg.length > 160) msg = '${msg.substring(0, 160)}…';
-    return msg;
+  /// 将网络/解析异常转换为用户可读的中文提示。
+  static String friendlyError(Object e) {
+    final msg = e.toString();
+
+    // DNS 解析失败
+    if (msg.contains('Failed host lookup') || msg.contains('SocketException')) {
+      final hostMatch = RegExp(r"'([^']+)'").firstMatch(msg);
+      final host = hostMatch?.group(1) ?? '目标网站';
+      return '无法连接到 $host（域名解析失败，该源站可能已失效）';
+    }
+
+    // 连接超时
+    if (msg.contains('connectionTimeout') || msg.contains('Connection timed out')) {
+      return '连接超时，请检查网络或稍后重试';
+    }
+
+    // 接收超时
+    if (msg.contains('receiveTimeout') || msg.contains('Receive timeout')) {
+      return '响应超时，源站可能响应过慢';
+    }
+
+    // 连接被拒绝
+    if (msg.contains('Connection refused') || msg.contains('connectionError')) {
+      return '连接被拒绝，该源站可能已下线';
+    }
+
+    // HTTP 错误状态码
+    final statusMatch = RegExp(r'StatusCode:\s*(\d+)').firstMatch(msg);
+    if (statusMatch != null) {
+      final code = statusMatch.group(1);
+      return '源站返回 HTTP $code 错误';
+    }
+
+    // 404
+    if (msg.contains('404')) {
+      return '页面未找到（404），该源站结构可能已变更';
+    }
+
+    // 去掉前缀并截断
+    var clean = msg.replaceFirst(RegExp(r'Exception:|DioException\s*\[[^\]]*\]:?\s*'), '');
+    clean = clean.replaceFirst(RegExp(r'^Error:\s*'), '');
+    if (clean.length > 120) clean = '${clean.substring(0, 120)}…';
+    return clean.isEmpty ? '未知错误' : clean;
   }
 }

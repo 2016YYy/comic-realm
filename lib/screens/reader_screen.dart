@@ -80,7 +80,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = ComicService.friendlyError(e);
       });
     }
   }
