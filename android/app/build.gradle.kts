@@ -7,7 +7,8 @@ plugins {
 
 android {
     namespace = "com.comicrealm.comic_realm"
-    compileSdk = flutter.compileSdkVersion
+    // background_downloader 要求以 Android SDK 36 编译，故此处不再跟随 Flutter 默认值。
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
