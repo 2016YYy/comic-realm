@@ -1,10 +1,15 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../models/comic.dart';
 import '../models/source.dart';
 import '../services/comic_service.dart';
-import 'package:provider/provider.dart';
+import '../services/history_service.dart';
+import '../services/settings_service.dart';
+import '../widgets/state_views.dart';
 
+/// 阅读器：竖向连续滚动（条漫）或横向翻页，均支持上一话 / 下一话切换。
 class ReaderScreen extends StatefulWidget {
   final ComicSource source;
   final Comic comic;
@@ -27,6 +32,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late int _currentIndex;
   List<String> _images = [];
   bool _loading = true;
+  String? _error;
+  bool _chromeVisible = true;
 
   @override
   void initState() {
@@ -36,22 +43,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _loadChapter() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+      _images = [];
+    });
     final comicService = context.read<ComicService>();
+    final chapter = widget.chapters[_currentIndex];
     try {
-      final chapter = widget.chapters[_currentIndex];
       final images = await comicService.getContent(widget.source, chapter, widget.comic);
-      if (mounted) {
-        setState(() {
-          _images = images;
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _images = images;
+        _loading = false;
+      });
+      // 记录阅读历史
+      context.read<HistoryService>().record(
+            comic: widget.comic,
+            chapterName: chapter.name,
+            chapterIndex: _currentIndex,
+          );
     } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('加载失败：$e')));
-      }
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
     }
   }
 
@@ -72,30 +89,95 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final chapter = widget.chapters[_currentIndex];
+    final continuous = context.watch<SettingsService>().readerContinuous;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(chapter.name, style: const TextStyle(fontSize: 14)),
-        actions: [
-          IconButton(icon: const Icon(Icons.skip_previous), onPressed: _currentIndex > 0 ? _prev : null),
-          IconButton(icon: const Icon(Icons.skip_next), onPressed: _currentIndex < widget.chapters.length - 1 ? _next : null),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _images.isEmpty
-              ? const Center(child: Text('没有图片'))
-              : ListView.builder(
-                  itemCount: _images.length,
-                  itemBuilder: (context, index) {
-                    return CachedNetworkImage(
-                      imageUrl: _images[index],
-                      fit: BoxFit.fitWidth,
-                      width: double.infinity,
-                      placeholder: (_, __) => Container(height: 300, color: Colors.grey[900], child: const Center(child: CircularProgressIndicator())),
-                      errorWidget: (_, __, ___) => Container(height: 300, color: Colors.grey[900], child: const Icon(Icons.broken_image)),
-                    );
-                  },
+      backgroundColor: Colors.black,
+      appBar: _chromeVisible
+          ? AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chapter.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  Text(
+                    '${_currentIndex + 1} / ${widget.chapters.length}',
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.skip_previous),
+                  onPressed: _currentIndex > 0 ? _prev : null,
                 ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next),
+                  onPressed: _currentIndex < widget.chapters.length - 1 ? _next : null,
+                ),
+              ],
+            )
+          : null,
+      body: GestureDetector(
+        onTap: () => setState(() => _chromeVisible = !_chromeVisible),
+        child: _buildBody(continuous),
+      ),
+    );
+  }
+
+  Widget _buildBody(bool continuous) {
+    if (_loading) return const LoadingView(label: '正在加载本章…');
+    if (_error != null) {
+      return ErrorView(message: '本章加载失败', detail: _error, onRetry: _loadChapter);
+    }
+    if (_images.isEmpty) {
+      return const EmptyView(icon: Icons.image_not_supported_outlined, title: '本章没有图片');
+    }
+
+    if (continuous) {
+      return ListView.builder(
+        itemCount: _images.length,
+        itemBuilder: (_, i) => _ReaderImage(url: _images[i]),
+      );
+    }
+
+    return PageView.builder(
+      itemCount: _images.length,
+      itemBuilder: (_, i) => InteractiveViewer(
+        maxScale: 4,
+        child: Center(child: _ReaderImage(url: _images[i])),
+      ),
+    );
+  }
+}
+
+class _ReaderImage extends StatelessWidget {
+  final String url;
+
+  const _ReaderImage({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.fitWidth,
+      width: double.infinity,
+      placeholder: (_, __) => const SizedBox(
+        height: 320,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (_, __, ___) => const SizedBox(
+        height: 320,
+        child: Center(
+          child: Icon(Icons.broken_image_outlined, color: Colors.white38, size: 40),
+        ),
+      ),
     );
   }
 }

@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import '../core/database.dart';
+import '../core/theme.dart';
+
+/// 书库排列方式
+enum LibraryViewMode {
+  /// 封面网格（默认）
+  grid,
+
+  /// 紧凑网格（一行多本，只看封面）
+  compact,
+
+  /// 列表（封面 + 简介 + 最新章节）
+  list,
+}
+
+/// 书库排序方式
+enum LibrarySort {
+  /// 最近加入
+  added,
+
+  /// 最近阅读（无阅读记录时回落到加入时间）
+  recent,
+
+  /// 标题
+  title,
+
+  /// 图源
+  source,
+}
+
+/// 全局偏好设置：主题、书库视图、阅读器行为、更新策略。
+/// 统一存进 Hive 的 `settings` box，避免各处散落 SharedPreferences 键。
+class SettingsService extends ChangeNotifier {
+  static const _kThemeMode = 'themeMode';
+  static const _kSeedColor = 'seedColor';
+  static const _kViewMode = 'libraryViewMode';
+  static const _kSort = 'librarySort';
+  static const _kAutoCheckUpdate = 'autoCheckUpdate';
+  static const _kSkippedVersion = 'skippedVersion';
+  static const _kReaderContinuous = 'readerContinuous';
+
+  Box get _box => AppDatabase.settings;
+
+  // ---------------- 主题 ----------------
+
+  ThemeMode get themeMode {
+    final v = _box.get(_kThemeMode) as String?;
+    return switch (v) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  set themeMode(ThemeMode mode) {
+    _box.put(_kThemeMode, switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    });
+    notifyListeners();
+  }
+
+  Color get seedColor {
+    final v = _box.get(_kSeedColor) as int?;
+    if (v == null) return AppTheme.seeds.first.color;
+    return Color(v);
+  }
+
+  set seedColor(Color color) {
+    _box.put(_kSeedColor, color.toARGB32());
+    notifyListeners();
+  }
+
+  // ---------------- 书库 ----------------
+
+  LibraryViewMode get libraryViewMode {
+    final v = _box.get(_kViewMode) as int? ?? 0;
+    return LibraryViewMode.values[v.clamp(0, LibraryViewMode.values.length - 1)];
+  }
+
+  set libraryViewMode(LibraryViewMode mode) {
+    _box.put(_kViewMode, mode.index);
+    notifyListeners();
+  }
+
+  LibrarySort get librarySort {
+    final v = _box.get(_kSort) as int? ?? 0;
+    return LibrarySort.values[v.clamp(0, LibrarySort.values.length - 1)];
+  }
+
+  set librarySort(LibrarySort sort) {
+    _box.put(_kSort, sort.index);
+    notifyListeners();
+  }
+
+  // ---------------- 阅读器 ----------------
+
+  /// true = 竖向连续滚动（条漫），false = 横向翻页
+  bool get readerContinuous => _box.get(_kReaderContinuous) as bool? ?? true;
+
+  set readerContinuous(bool value) {
+    _box.put(_kReaderContinuous, value);
+    notifyListeners();
+  }
+
+  // ---------------- 更新 ----------------
+
+  bool get autoCheckUpdate => _box.get(_kAutoCheckUpdate) as bool? ?? true;
+
+  set autoCheckUpdate(bool value) {
+    _box.put(_kAutoCheckUpdate, value);
+    notifyListeners();
+  }
+
+  /// 用户选择「忽略此版本」后记录，自动检查时不再提示
+  String get skippedVersion => _box.get(_kSkippedVersion) as String? ?? '';
+
+  set skippedVersion(String value) {
+    _box.put(_kSkippedVersion, value);
+    notifyListeners();
+  }
+}

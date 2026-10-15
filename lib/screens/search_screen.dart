@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/database.dart';
 import '../models/comic.dart';
 import '../models/source.dart';
 import '../services/comic_service.dart';
+import '../widgets/comic_cover.dart';
+import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -126,14 +127,16 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildStatusBar() {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.black26,
+      color: scheme.surfaceContainerHigh,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('共 ${_results.length} 条结果', style: const TextStyle(fontSize: 12)),
+          Text('共 ${_results.length} 条结果',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
           if (_errors.isNotEmpty) ...[
             const SizedBox(height: 6),
             Theme(
@@ -141,9 +144,9 @@ class _SearchScreenState extends State<SearchScreen> {
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 childrenPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.error_outline, color: Colors.orange, size: 18),
+                leading: Icon(Icons.error_outline, color: scheme.error, size: 18),
                 title: Text('${_errors.length} 个图源失败（点击查看原因）',
-                    style: const TextStyle(fontSize: 12, color: Colors.orange)),
+                    style: TextStyle(fontSize: 12, color: scheme.error)),
                 children: _errors
                     .map((e) => Padding(
                           padding: const EdgeInsets.only(bottom: 6, left: 4),
@@ -151,9 +154,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('· ${e.sourceName}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: scheme.onSurface)),
                               Text('  ${e.message}',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                                  style: TextStyle(
+                                      fontSize: 11, color: scheme.onSurfaceVariant)),
                             ],
                           ),
                         ))
@@ -167,25 +174,19 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const LoadingView(label: '正在搜索…');
     if (!_searched) {
-      return Center(
-        child: Text('输入关键词后点击搜索', style: TextStyle(color: Colors.grey[500])),
+      return const EmptyView(
+        icon: Icons.search,
+        title: '搜索漫画',
+        subtitle: '输入关键词后点击搜索，将同时查询所有已启用图源',
       );
     }
     if (_results.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 60, color: Colors.grey[600]),
-            const SizedBox(height: 12),
-            Text('暂无结果', style: TextStyle(color: Colors.grey[500])),
-            if (_errors.isNotEmpty)
-              Text('已启用图源均搜索失败，请展开上方查看原因',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          ],
-        ),
+      return EmptyView(
+        icon: Icons.search_off,
+        title: '暂无结果',
+        subtitle: _errors.isNotEmpty ? '已启用图源均搜索失败，请展开上方查看原因' : '换个关键词再试试',
       );
     }
     return ListView.builder(
@@ -193,22 +194,14 @@ class _SearchScreenState extends State<SearchScreen> {
       itemBuilder: (context, index) {
         final comic = _results[index];
         return ListTile(
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: SizedBox(
-              width: 50,
-              height: 70,
-              child: comic.coverUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: comic.coverUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(color: Colors.grey[800]),
-                    )
-                  : Container(color: Colors.grey[800]),
-            ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: ComicCover(url: comic.coverUrl, width: 50, height: 70, radius: 6),
+          title: Text(comic.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            comic.author.isEmpty ? comic.sourceName : '${comic.author} · ${comic.sourceName}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          title: Text(comic.name),
-          subtitle: Text('${comic.author} · ${comic.sourceName}'),
           onTap: () {
             Navigator.push(
               context,

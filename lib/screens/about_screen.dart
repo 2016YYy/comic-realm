@@ -31,11 +31,11 @@ class _AboutScreenState extends State<AboutScreen> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.menu_book, size: 80, color: Color(0xFF6C5CE7)),
+            Icon(Icons.menu_book, size: 80, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 16),
             const Text('漫境 ComicRealm', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('v$_version', style: TextStyle(color: Colors.grey[500])),
+            Text('v$_version', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 24),
             const Text(
               '一款支持多图源的开源漫画阅读器。\n'
@@ -64,15 +64,18 @@ class _AboutScreenState extends State<AboutScreen> {
               },
             ),
             const Divider(),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 '免责声明\n\n'
                 '本软件为开源漫画阅读器，本身不存储、不上传任何漫画内容，'
                 '仅作为用户访问第三方图源网站的解析工具。所有漫画作品的版权归原作者及图源网站所有。'
                 '本软件仅供个人学习交流使用，严禁用于任何商业用途。'
                 '使用者应遵守所在国家或地区的法律法规，因使用本软件产生的一切法律责任由使用者自行承担。',
-                style: TextStyle(fontSize: 12, height: 1.6, color: Colors.grey),
+                style: TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
           ],

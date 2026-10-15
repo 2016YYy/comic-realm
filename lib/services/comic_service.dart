@@ -86,6 +86,9 @@ class ComicService extends ChangeNotifier {
 
   bool isFavorite(String noteUrl) => AppDatabase.favorites.containsKey(noteUrl);
 
+  /// 触发一次刷新（例如书库下拉刷新）
+  void reload() => notifyListeners();
+
   List<Comic> get favorites => AppDatabase.favorites.values.toList();
 
   String _friendlyError(Object e) {

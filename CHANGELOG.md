@@ -7,6 +7,32 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-15
+
+### 新增
+
+- 应用内更新中心：检查更新 → 查看更新说明 → 下载 → 安装，全程在应用内完成，支持实时进度条、暂停与断点续传
+- 后台下载：切到后台或锁屏都会继续下载更新包，通知栏显示实时进度，点击完成通知可直接安装
+- 书架支持网格 / 紧凑 / 列表三种视图，以及按最近加入 / 最近阅读 / 标题 / 图源排序
+- 新增 8 套主题种子色，以及跟随系统 / 浅色 / 深色三种主题模式
+- 新增阅读历史记录与阅读进度记录（最多保留 300 条）
+- 新增数据备份 / 恢复：图源、收藏、阅读历史与偏好设置可导出为单个 JSON 并一键还原
+
+### 变更
+
+- 重构书架 / 发现 / 下载 / 图源 / 设置五个主页面与阅读器，统一为 Material 3 主题与组件体系
+- 全应用的颜色由主题种子色派生，移除页面内写死的颜色，深色模式统一为沉浸式暗色背景
+- 统一漫画封面组件（`ComicCover`）与加载 / 空态 / 错误态组件（`LoadingView` / `EmptyView` / `ErrorView`）
+- 设置页整合外观、阅读、更新、数据、关于等入口
+- 移除已被取代的旧首页，导航统一为底部五个标签页
+
+### 修复
+
+- 修复 release 包缺少 `INTERNET` 网络权限，导致正式版无法访问任何图源
+- 修复应用内更新缺少 `REQUEST_INSTALL_PACKAGES` 安装权限与 APK 包可见性，下载完成后无法调起系统安装界面
+- 修复后台下载通知因分组配置导致不显示单任务进度条、`{progress}` 占位符不生效的问题
+- 修复 Android 13+ 下载进度通知缺少运行时通知权限的问题
+
 ## [1.0.2] - 2026-10-15
 
 ### 新增
@@ -47,7 +73,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/2016YYy/comic-realm/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/2016YYy/comic-realm/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/2016YYy/comic-realm/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/2016YYy/comic-realm/releases/tag/v1.0.0

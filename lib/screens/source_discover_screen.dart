@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/comic.dart';
 import '../models/source.dart';
 import '../services/comic_service.dart';
+import '../widgets/comic_cover.dart';
+import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 
 /// 图源「分类 / 发现」页：展示该图源的分类，浏览、收藏、阅读漫画。
@@ -126,54 +127,25 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
   }
 
   Widget _buildNoCategories() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.category_outlined, size: 64, color: Colors.grey[600]),
-            const SizedBox(height: 16),
-            Text('该图源未配置分类', style: TextStyle(color: Colors.grey[400])),
-            const SizedBox(height: 8),
-            Text('可使用右上角搜索，或导入带有 ruleFindUrl 的图源',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              icon: const Icon(Icons.search),
-              label: const Text('搜索漫画'),
-              onPressed: () => _showSearchDialog(),
-            ),
-          ],
-        ),
+    return EmptyView(
+      icon: Icons.category_outlined,
+      title: '该图源未配置分类',
+      subtitle: '可使用右上角搜索，或导入带有 ruleFindUrl 的图源',
+      action: FilledButton.icon(
+        icon: const Icon(Icons.search),
+        label: const Text('搜索漫画'),
+        onPressed: () => _showSearchDialog(),
       ),
     );
   }
 
   Widget _buildContent() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const LoadingView(label: '正在加载漫画…');
     if (_error != null && _comics.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 56, color: Colors.orange),
-              const SizedBox(height: 12),
-              Text('加载失败', style: TextStyle(color: Colors.grey[300])),
-              const SizedBox(height: 8),
-              Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-              const SizedBox(height: 16),
-              FilledButton(onPressed: () => _load(reset: true), child: const Text('重试')),
-            ],
-          ),
-        ),
-      );
+      return ErrorView(message: '加载失败', detail: _error, onRetry: () => _load(reset: true));
     }
     if (_comics.isEmpty) {
-      return Center(child: Text('该分类暂无漫画', style: TextStyle(color: Colors.grey[500])));
+      return const EmptyView(icon: Icons.image_search, title: '该分类暂无漫画');
     }
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
@@ -205,7 +177,8 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
             )
           : _hasMore
               ? TextButton(onPressed: _loadMore, child: const Text('加载更多'))
-              : Text('没有更多了', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              : Text('没有更多了',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
     );
   }
 
@@ -270,7 +243,8 @@ class _ComicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
       onTap: () {
         Navigator.push(
           context,
@@ -281,19 +255,7 @@ class _ComicTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: comic.coverUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: comic.coverUrl,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: (_, __) => Container(color: Colors.grey[800]),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: Colors.grey[800], child: const Icon(Icons.broken_image)),
-                    )
-                  : Container(color: Colors.grey[800], child: const Icon(Icons.image_not_supported)),
-            ),
+            child: ComicCover(url: comic.coverUrl, width: double.infinity, radius: 8),
           ),
           const SizedBox(height: 4),
           Text(comic.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),

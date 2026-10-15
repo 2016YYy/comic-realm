@@ -46,6 +46,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.12.0"
+  background_downloader:
+    dependency: "direct main"
+    description:
+      name: background_downloader
+      sha256: ae55e127f87397b372578fc9474568b879fa78326103c342e00160558d08e527
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "9.5.9"
   boolean_selector:
     dependency: transitive
     description:
@@ -621,6 +629,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.2"
+  open_filex:
+    dependency: "direct main"
+    description:
+      name: open_filex
+      sha256: "9976da61b6a72302cf3b1efbce259200cd40232643a467aac7370addf94d6900"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.7.0"
   package_config:
     dependency: transitive
     description:

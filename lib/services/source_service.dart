@@ -188,6 +188,9 @@ class SourceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 触发一次刷新（例如恢复备份后）
+  void reload() => notifyListeners();
+
   Future<void> toggleSource(ComicSource source) async {
     source.enable = !source.enable;
     await source.save();

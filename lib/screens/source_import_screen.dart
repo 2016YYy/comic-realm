@@ -65,7 +65,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
           Text(
             '图源规则格式兼容 开源阅读(legado) / 异次元 的 JSON 图源。\n'
             '可在 https://www.yckceo.com/yiciyuan/tuyuan/index.html 等图源站找到图源链接。',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -133,6 +133,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
   }
 
   Future<void> _importFromFile() async {
+    final sourceService = context.read<SourceService>();
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json', 'txt'],
@@ -140,11 +141,12 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
     if (result == null || result.files.single.path == null) return;
     setState(() => _importing = true);
     try {
-      final imported = await context.read<SourceService>().importFromFile(result.files.single.path!);
+      final imported = await sourceService.importFromFile(result.files.single.path!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
     } finally {
       if (mounted) setState(() => _importing = false);
