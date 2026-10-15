@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     name: Build Android APK
@@ -95,6 +99,9 @@ jobs:
     needs: [build-android, build-windows, build-ios]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -105,12 +112,47 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release delete "${GITHUB_REF_NAME}" --yes || true
+      - name: Build release notes from CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/section.md
+          {
+            echo "## 漫境 ComicRealm v${VERSION}"
+            echo
+            echo "> 跨平台开源漫画阅读器 · 兼容 legado / 异次元 图源"
+            echo
+            cat /tmp/section.md
+            echo "### 下载"
+            echo
+            echo "| 平台 | 安装包 | 说明 |"
+            echo "| --- | --- | --- |"
+            echo "| Android | \`ComicRealm-v${VERSION}-android-arm64-v8a.apk\` | 推荐，适配大多数现代设备 |"
+            echo "| Android | \`ComicRealm-v${VERSION}-android-armeabi-v7a.apk\` | 32 位老旧设备 |"
+            echo "| Android | \`ComicRealm-v${VERSION}-android-x86_64.apk\` | 模拟器 / x86 设备 |"
+            echo "| Windows | \`ComicRealm-v${VERSION}-windows-x64.zip\` | 解压即用 |"
+            echo "| iOS | \`ComicRealm-v${VERSION}-ios-unsigned.ipa\` | 免签名包，需自签安装 |"
+            echo
+            echo "首次使用请在「图源」页导入图源；应用内「设置 → 检查更新」可一键升级。"
+            if [ -n "$PREV" ]; then
+              echo
+              echo "**完整更新日志**：[\`${PREV}...${GITHUB_REF_NAME}\`](https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${GITHUB_REF_NAME})"
+            fi
+          } > release_body.md
+          echo '--- release_body.md ---'
+          cat release_body.md
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          body_path: release_body.md
+          generate_release_notes: false
           files: |
             artifacts/android-apk/ComicRealm-*.apk
             artifacts/windows-zip/ComicRealm-*.zip
             artifacts/ios-ipa/ComicRealm-*.ipa
-          generate_release_notes: true
