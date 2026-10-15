@@ -39,6 +39,7 @@ class SettingsService extends ChangeNotifier {
   static const _kSort = 'librarySort';
   static const _kAutoCheckUpdate = 'autoCheckUpdate';
   static const _kSkippedVersion = 'skippedVersion';
+  static const _kIncludePrerelease = 'includePrerelease';
   static const _kReaderContinuous = 'readerContinuous';
   static const _kReaderFontSize = 'readerFontSize';
 
@@ -134,6 +135,14 @@ class SettingsService extends ChangeNotifier {
 
   set skippedVersion(String value) {
     _box.put(_kSkippedVersion, value);
+    notifyListeners();
+  }
+
+  /// 是否包含预发布版本（测试版 / beta）
+  bool get includePrerelease => _box.get(_kIncludePrerelease) as bool? ?? false;
+
+  set includePrerelease(bool value) {
+    _box.put(_kIncludePrerelease, value);
     notifyListeners();
   }
 }

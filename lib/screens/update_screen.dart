@@ -25,7 +25,9 @@ class _UpdateScreenState extends State<UpdateScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final service = context.read<UpdateService>();
       if (service.update == null) {
-        service.checkForUpdate();
+        service.checkForUpdate(
+          includePrerelease: context.read<SettingsService>().includePrerelease,
+        );
       }
     });
   }
@@ -50,6 +52,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                 ? null
                 : () => service.checkForUpdate(
                       skippedVersion: context.read<SettingsService>().skippedVersion,
+                      includePrerelease: context.read<SettingsService>().includePrerelease,
                     ),
           ),
         ],
@@ -498,6 +501,7 @@ class _FailedCard extends StatelessWidget {
                   ? () => service.startDownload()
                   : () => service.checkForUpdate(
                         skippedVersion: context.read<SettingsService>().skippedVersion,
+                        includePrerelease: context.read<SettingsService>().includePrerelease,
                       ),
               icon: const Icon(Icons.refresh),
               label: const Text('重试'),

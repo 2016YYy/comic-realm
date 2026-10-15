@@ -7,6 +7,20 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-16
+
+### 重构
+
+- 「关于」页面重构为 CloudDrive 风格：圆形应用图标、应用名称与标语、系统信息（产品名称/版本/操作系统）、外部链接、免责声明分区展示
+- 「检查更新」功能整合进「关于」页：检查更新按钮、包含预发布版本开关、自动检查更新开关、已忽略版本恢复
+- 「设置」页移除独立的「更新」区块，更新相关设置统一在「关于」页管理
+- 更新弹窗参考 CloudDrive 风格：圆角弹窗、下载图标、版本说明、「跳过此版本」与「下载并安装」按钮
+
+### 新增
+
+- 支持预发布版本检查：开启「包含预发布版本」后可获取测试版更新
+- 系统信息展示当前操作系统版本
+
 ## [1.3.0] - 2026-10-16
 
 ### 新增
@@ -152,7 +166,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/2016YYy/comic-realm/compare/v1.1.0...v1.1.1

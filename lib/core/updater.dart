@@ -75,21 +75,40 @@ class Updater {
             ));
 
   /// 查询最新 Release；失败（网络异常 / 非 200）返回 null。
-  Future<AppUpdate?> checkUpdate() async {
+  /// [includePrerelease] 为 true 时查询全部 Release（含预发布版），取最新。
+  Future<AppUpdate?> checkUpdate({bool includePrerelease = false}) async {
     final info = await PackageInfo.fromPlatform();
     final current = info.version;
 
     try {
+      final url = includePrerelease
+          ? 'https://api.github.com/repos/$owner/$repo/releases?per_page=10'
+          : 'https://api.github.com/repos/$owner/$repo/releases/latest';
       final resp = await _dio.get(
-        'https://api.github.com/repos/$owner/$repo/releases/latest',
+        url,
         options: Options(headers: {
           'Accept': 'application/vnd.github+json',
           'User-Agent': 'ComicRealm/$current',
         }),
       );
       if (resp.statusCode != 200) return null;
-      final data = resp.data;
-      if (data is! Map) return null;
+
+      Map<String, dynamic> data;
+      if (includePrerelease) {
+        // 取列表中最新的一条（含预发布）
+        final list = resp.data;
+        if (list is! List || list.isEmpty) return null;
+        final first = list.firstWhere(
+          (e) => e is Map,
+          orElse: () => null,
+        );
+        if (first is! Map) return null;
+        data = Map<String, dynamic>.from(first);
+      } else {
+        final d = resp.data;
+        if (d is! Map) return null;
+        data = Map<String, dynamic>.from(d);
+      }
 
       final version = stripV((data['tag_name'] ?? '').toString());
       final body = (data['body'] ?? '').toString();

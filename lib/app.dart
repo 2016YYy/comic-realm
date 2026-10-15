@@ -154,6 +154,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final hasNew = await updateService.checkForUpdate(
       silent: true,
       skippedVersion: settings.skippedVersion,
+      includePrerelease: settings.includePrerelease,
     );
     if (!hasNew || !mounted) return;
 

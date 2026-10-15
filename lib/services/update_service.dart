@@ -133,13 +133,18 @@ class UpdateService extends ChangeNotifier {
   /// 检查更新。
   /// [silent] 为 true 时不改变可下载状态，仅用于启动后的静默检查。
   /// 用户已「忽略此版本」时静默检查会跳过提示。
-  Future<bool> checkForUpdate({bool silent = false, String skippedVersion = ''}) async {
+  /// [includePrerelease] 为 true 时包含预发布版本。
+  Future<bool> checkForUpdate({
+    bool silent = false,
+    String skippedVersion = '',
+    bool includePrerelease = false,
+  }) async {
     if (!silent) {
       _phase = UpdatePhase.checking;
       _error = null;
       _notify();
     }
-    final result = await updater.checkUpdate();
+    final result = await updater.checkUpdate(includePrerelease: includePrerelease);
     _lastCheckedAt = DateTime.now();
 
     if (result == null) {
