@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../services/settings_service.dart';
 import '../services/update_service.dart';
+import '../widgets/state_views.dart';
 
 /// 应用内更新：检查 → 更新说明 → 下载（进度条 / 可后台 / 可续传）→ 安装。
 class UpdateScreen extends StatefulWidget {
@@ -273,9 +274,7 @@ class _AvailableCard extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () {
                   settings.skippedVersion = update.version;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已忽略 v${update.version}，下次不再提示')),
-                  );
+                  showToast(context, '已忽略 v${update.version}，下次不再提示');
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.visibility_off_outlined, size: 18),
@@ -441,8 +440,11 @@ class _ReadyCard extends StatelessWidget {
               onPressed: () async {
                 final result = await service.install();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result.message)),
+                showToast(
+                  context,
+                  result.message,
+                  icon: result.ok ? Icons.check_circle_outline : Icons.error_outline,
+                  isError: !result.ok,
                 );
               },
               icon: const Icon(Icons.install_desktop),

@@ -65,37 +65,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (v) => settings.readerContinuous = v,
           ),
 
-          // ---------- 更新 ----------
-          const _SectionTitle('更新'),
-          SwitchListTile(
-            secondary: const Icon(Icons.notifications_none),
-            title: const Text('启动时自动检查更新'),
-            subtitle: const Text('发现新版本时在应用内提示'),
-            value: settings.autoCheckUpdate,
-            onChanged: (v) => settings.autoCheckUpdate = v,
-          ),
-          ListTile(
-            leading: Badge(
-              isLabelVisible: update.hasUpdate,
-              child: const Icon(Icons.system_update_alt),
-            ),
-            title: const Text('检查更新'),
-            subtitle: Text(update.phaseLabel),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const UpdateScreen()),
-            ),
-          ),
-          if (settings.skippedVersion.isNotEmpty)
-            ListTile(
-              leading: const Icon(Icons.visibility_off_outlined),
-              title: Text('已忽略版本 v${settings.skippedVersion}'),
-              subtitle: const Text('点击恢复提示'),
-              trailing: const Icon(Icons.undo, size: 20),
-              onTap: () => settings.skippedVersion = '',
-            ),
-
           // ---------- 图源 ----------
           const _SectionTitle('图源'),
           ListTile(
@@ -135,6 +104,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.delete_outline),
             onTap: historyCount == 0 ? null : _clearHistory,
           ),
+
+          // ---------- 更新 ----------
+          const _SectionTitle('更新'),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_none),
+            title: const Text('启动时自动检查更新'),
+            subtitle: const Text('发现新版本时在应用内提示'),
+            value: settings.autoCheckUpdate,
+            onChanged: (v) => settings.autoCheckUpdate = v,
+          ),
+          ListTile(
+            leading: Badge(
+              isLabelVisible: update.hasUpdate,
+              child: const Icon(Icons.system_update_alt),
+            ),
+            title: const Text('检查更新'),
+            subtitle: Text(update.phaseLabel),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const UpdateScreen()),
+            ),
+          ),
+          if (settings.skippedVersion.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: Text('已忽略版本 v${settings.skippedVersion}'),
+              subtitle: const Text('点击恢复提示'),
+              trailing: const Icon(Icons.undo, size: 20),
+              onTap: () => settings.skippedVersion = '',
+            ),
 
           // ---------- 关于 ----------
           const _SectionTitle('关于'),

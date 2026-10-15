@@ -193,6 +193,7 @@ class _SearchScreenState extends State<SearchScreen> {
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final comic = _results[index];
+        final isFav = context.watch<ComicService>().isFavorite(comic.noteUrl);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: ComicCover(url: comic.coverUrl, width: 50, height: 70, radius: 6),
@@ -201,6 +202,23 @@ class _SearchScreenState extends State<SearchScreen> {
             comic.author.isEmpty ? comic.sourceName : '${comic.author} · ${comic.sourceName}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+          trailing: IconButton(
+            icon: Icon(
+              isFav ? Icons.favorite : Icons.favorite_border,
+              color: isFav ? Theme.of(context).colorScheme.primary : null,
+            ),
+            tooltip: isFav ? '取消收藏' : '加入书架',
+            onPressed: () {
+              final service = context.read<ComicService>();
+              if (isFav) {
+                service.removeFavorite(comic);
+                showToast(context, '已从书架移除');
+              } else {
+                service.addFavorite(comic);
+                showToast(context, '已加入书架', icon: Icons.favorite);
+              }
+            },
           ),
           onTap: () {
             Navigator.push(

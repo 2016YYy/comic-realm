@@ -65,8 +65,9 @@ class SourceEngine {
         await _evalString(source.ruleBookName, ctx, env), comic.name);
     comic.author = _ifEmpty(
         await _evalString(source.ruleBookAuthor, ctx, env), comic.author);
+    final cover = await _evalString(source.ruleCoverUrl, ctx, env);
     comic.coverUrl = _ifEmpty(
-        await _evalString(source.ruleCoverUrl, ctx, env), comic.coverUrl);
+        cover.isNotEmpty ? _http.absoluteUrl(comic.noteUrl, cover) : '', comic.coverUrl);
     comic.introduce = _ifEmpty(
         await _evalString(source.ruleIntroduce, ctx, env), comic.introduce);
     comic.kind = _ifEmpty(
@@ -99,9 +100,11 @@ class SourceEngine {
     var chapters = <Chapter>[];
     for (final item in items) {
       final name = await _evalString(source.ruleChapterName, item, env);
-      final url = await _evalString(source.ruleContentUrl, item, env);
-      if (url.trim().isEmpty) continue;
-      chapters.add(Chapter(name: name, url: url.trim(), index: 0));
+      final rawUrl = await _evalString(source.ruleContentUrl, item, env);
+      if (rawUrl.trim().isEmpty) continue;
+      // JSON 源可能返回相对地址，统一解析为绝对 URL
+      final absUrl = _http.absoluteUrl(chapterUrl, rawUrl.trim());
+      chapters.add(Chapter(name: name, url: absUrl, index: 0));
     }
     if (reverse) chapters = chapters.reversed.toList();
     for (var i = 0; i < chapters.length; i++) {
@@ -124,11 +127,17 @@ class SourceEngine {
     final urls = <String>[];
     for (final r in results) {
       if (r is Element) {
-        // 规则未显式指定属性时，回退到常见图片属性
+        // 规则未显式指定属性时，回退到常见图片属性（含各种懒加载写法）
         final u = r.attributes['data-src'] ??
             r.attributes['data-original'] ??
             r.attributes['data-lazy-src'] ??
+            r.attributes['data-lazyload'] ??
             r.attributes['data-echo'] ??
+            r.attributes['data-cfsrc'] ??
+            r.attributes['data-img'] ??
+            r.attributes['data-original-src'] ??
+            r.attributes['data-bg'] ??
+            r.attributes['data-url'] ??
             r.attributes['src'] ??
             '';
         if (u.isNotEmpty) urls.add(_http.absoluteUrl(chapter.url, u));
@@ -227,11 +236,18 @@ class SourceEngine {
       if (name.trim().isEmpty && note.trim().isEmpty) continue;
       final author = await _evalString(source.ruleSearchAuthor, item, env);
       final cover = await _evalString(source.ruleSearchCoverUrl, item, env);
+      // JSON 源可能返回相对地址，统一解析为绝对 URL
+      final absNote = note.trim().isNotEmpty
+          ? _http.absoluteUrl(baseUrl, note.trim())
+          : '';
+      final absCover = cover.trim().isNotEmpty
+          ? _http.absoluteUrl(baseUrl, cover.trim())
+          : '';
       comics.add(Comic(
         name: name.trim(),
         author: author.trim(),
-        coverUrl: cover.trim(),
-        noteUrl: note.trim(),
+        coverUrl: absCover,
+        noteUrl: absNote,
         sourceUrl: source.bookSourceUrl,
         sourceName: source.bookSourceName,
         kind: source.bookSourceGroup,
@@ -412,7 +428,11 @@ class SourceEngine {
   /// - 若为 JSON（以 `{` 或 `[` 开头且可解析），返回解析后的 Map/List，供 JSONPath 规则使用
   /// - 否则解析为 HTML Document，供 CSS/XPath 规则使用
   dynamic _parseContext(String raw) {
-    final trimmed = raw.trimLeft();
+    var trimmed = raw.trimLeft();
+    // 去除可能的 BOM（U+FEFF）
+    if (trimmed.startsWith('\uFEFF')) {
+      trimmed = trimmed.substring(1);
+    }
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
         return jsonDecode(trimmed);

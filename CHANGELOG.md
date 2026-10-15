@@ -7,6 +7,21 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-16
+
+### 新增
+
+- 设置页区块重排：「更新」移至「数据」下方，顺序更合理
+- 更新包下载完成后自动弹出安装确认弹窗，无需手动进入更新页
+- 全局美化吐司提示：带图标、圆角、主题配色的浮动 SnackBar
+- 搜索结果列表项新增快速收藏按钮，可直接加入/移除书架
+
+### 修复
+
+- 修复 JSON 图源返回相对 URL（章节链接、封面、详情页）未解析为绝对地址导致内容无法加载的问题
+- `_parseContext` 增加 BOM（U+FEFF）处理，避免带 BOM 的 JSON 响应被误判为 HTML
+- `getContent` 图片属性回退列表扩充（`data-lazyload`、`data-cfsrc`、`data-img`、`data-original-src`、`data-bg`、`data-url` 等懒加载写法）
+
 ## [1.2.0] - 2026-10-16
 
 ### 新增
@@ -137,7 +152,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/2016YYy/comic-realm/compare/v1.1.0...v1.1.1
 [1.0.4]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...v1.0.4
