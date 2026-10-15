@@ -1,0 +1,46 @@
+name: Sync Release Notes
+
+# 让已发布版本的 Release 说明与 CHANGELOG.md 保持一致（含历史版本回填）。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - CHANGELOG.md
+      - scripts/release-notes.sh
+      - .github/workflows/release-notes.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-notes
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync Release Notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh notes for existing releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --limit 50 --json tagName,isDraft \
+            --jq '.[] | select(.isDraft == false) | .tagName' > /tmp/tags.txt
+          if [ ! -s /tmp/tags.txt ]; then
+            echo "没有已发布的 Release，跳过"
+            exit 0
+          fi
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            if bash scripts/release-notes.sh "$tag" > /tmp/body.md 2>/tmp/err.txt; then
+              gh release edit "$tag" --notes-file /tmp/body.md
+              echo "已更新 ${tag}"
+            else
+              echo "跳过 ${tag}：$(cat /tmp/err.txt)"
+            fi
+          done < /tmp/tags.txt
