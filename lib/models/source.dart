@@ -105,32 +105,57 @@ class ComicSource extends HiveObject {
   });
 
   factory ComicSource.fromJson(Map<String, dynamic> json) {
+    // 兼容 legado（开源阅读）的嵌套规则对象
+    final rSearch = _asMap(json['ruleSearch']);
+    final rInfo = _asMap(json['ruleBookInfo']);
+    final rToc = _asMap(json['ruleToc']);
+    final rContent = _asMap(json['ruleContent']);
+
+    String pick(List<dynamic> candidates) {
+      for (final c in candidates) {
+        final s = _str(c);
+        if (s.isNotEmpty) return s;
+      }
+      return '';
+    }
+
     return ComicSource(
-      bookSourceUrl: json['bookSourceUrl'] ?? '',
-      bookSourceName: json['bookSourceName'] ?? '',
-      bookSourceGroup: json['bookSourceGroup'] ?? '',
-      bookSourceType: json['bookSourceType'] ?? '漫画',
-      httpUserAgent: json['httpUserAgent'] ?? '',
-      ruleSearchUrl: json['ruleSearchUrl'] ?? '',
-      ruleSearchList: json['ruleSearchList'] ?? '',
-      ruleSearchName: json['ruleSearchName'] ?? '',
-      ruleSearchAuthor: json['ruleSearchAuthor'] ?? '',
-      ruleSearchCoverUrl: json['ruleSearchCoverUrl'] ?? '',
-      ruleSearchNoteUrl: json['ruleSearchNoteUrl'] ?? '',
-      ruleBookName: json['ruleBookName'] ?? '',
-      ruleCoverUrl: json['ruleCoverUrl'] ?? '',
-      ruleBookAuthor: json['ruleBookAuthor'] ?? '',
-      ruleBookKind: json['ruleBookKind'] ?? '',
-      ruleIntroduce: json['ruleIntroduce'] ?? '',
-      ruleChapterList: json['ruleChapterList'] ?? '',
-      ruleChapterName: json['ruleChapterName'] ?? '',
-      ruleContentUrl: json['ruleContentUrl'] ?? '',
-      ruleBookContent: json['ruleBookContent'] ?? '',
-      ruleFindUrl: json['ruleFindUrl'] ?? '',
-      enable: json['enable'] ?? true,
-      sourceRemark: json['sourceRemark'] ?? '',
-      weight: json['weight'] ?? 0,
+      bookSourceUrl: _str(json['bookSourceUrl']),
+      bookSourceName: _str(json['bookSourceName']),
+      bookSourceGroup: _str(json['bookSourceGroup']),
+      bookSourceType: pick([json['bookSourceType'], '漫画']),
+      httpUserAgent: _str(json['httpUserAgent']),
+      ruleSearchUrl: pick([json['ruleSearchUrl'], json['searchUrl']]),
+      ruleSearchList: pick([json['ruleSearchList'], rSearch['bookList']]),
+      ruleSearchName: pick([json['ruleSearchName'], rSearch['name']]),
+      ruleSearchAuthor: pick([json['ruleSearchAuthor'], rSearch['author']]),
+      ruleSearchCoverUrl: pick([json['ruleSearchCoverUrl'], rSearch['coverUrl']]),
+      ruleSearchNoteUrl: pick([json['ruleSearchNoteUrl'], rSearch['bookUrl']]),
+      ruleBookName: pick([json['ruleBookName'], rInfo['name']]),
+      ruleCoverUrl: pick([json['ruleCoverUrl'], rInfo['coverUrl']]),
+      ruleBookAuthor: pick([json['ruleBookAuthor'], rInfo['author']]),
+      ruleBookKind: pick([json['ruleBookKind'], rInfo['kind']]),
+      ruleIntroduce: pick([json['ruleIntroduce'], rInfo['intro']]),
+      ruleChapterList: pick([json['ruleChapterList'], rToc['chapterList']]),
+      ruleChapterName: pick([json['ruleChapterName'], rToc['chapterName']]),
+      ruleContentUrl: pick([json['ruleContentUrl'], rToc['chapterUrl']]),
+      ruleBookContent: pick([json['ruleBookContent'], rContent['content']]),
+      ruleFindUrl: _str(json['ruleFindUrl']),
+      enable: json['enable'] is bool ? json['enable'] as bool : true,
+      sourceRemark: _str(json['sourceRemark']),
+      weight: json['weight'] is int
+          ? json['weight'] as int
+          : int.tryParse(_str(json['weight'])) ?? 0,
     );
+  }
+
+  static Map<String, dynamic> _asMap(dynamic v) =>
+      v is Map ? Map<String, dynamic>.from(v) : const {};
+
+  static String _str(dynamic v) {
+    if (v == null) return '';
+    if (v is String) return v;
+    return v.toString();
   }
 
   Map<String, dynamic> toJson() => {

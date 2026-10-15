@@ -16,6 +16,8 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.1.1
   html: ^0.15.4
+  # GBK/GB2312 编码源页面解码
+  charset: ^2.0.1
   # 图源规则中的 JS 执行
   flutter_js: ^0.8.0
   # 本地存储
