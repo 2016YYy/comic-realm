@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '免责声明：\n'
               '本软件为开源漫画阅读器，仅提供图源解析与阅读功能，本身不存储任何漫画内容。'
               '所有漫画版权归原作者及图源网站所有。请遵守当地法律法规，仅用于个人学习交流，'
-              '请勿用于商业用途。如本软件侵犯了您的权益，请联系开发者删除相关图源。',
+              '请勿用于商业用途。',
               style: TextStyle(color: Colors.grey[500], fontSize: 12, height: 1.5),
             ),
           ),
