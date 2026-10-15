@@ -1,9 +1,10 @@
 allprojects {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        // 官方仓库优先，CI 直连更稳定；Aliyun 镜像作为国内开发备选。
         google()
         mavenCentral()
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
     }
 }
 
