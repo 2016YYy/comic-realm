@@ -7,9 +7,6 @@
 
 ## [Unreleased]
 
-### Changed
-- 发布产物统一命名规范为 `ComicRealm-v<版本>-<平台>-<架构>.<扩展名>`，与 [README](README.md#发布产物命名规范) 下载表格保持一致
-
 ## [1.0.2] - 2026-10-15
 
 ### Added
@@ -24,6 +21,7 @@
 - 图源导入支持明文 JSON、Base64、Base64+zlib、Base64+gzip 及 URL-safe Base64 等多种载荷
 - 内置图源由占位源替换为真实可用的「包子漫画」源
 - HTTP 请求按响应头与页面 `<meta charset>` 自动识别 GBK / GB2312 / UTF-8 编码
+- 发布产物统一命名规范为 `ComicRealm-v<版本>-<平台>-<架构>.<扩展名>`，与 [README](README.md#发布产物命名规范) 下载表格保持一致
 
 ### Fixed
 

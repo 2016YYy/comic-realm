@@ -100,6 +100,11 @@ jobs:
           path: artifacts
       - name: Display structure
         run: ls -R artifacts
+      - name: Remove stale release for this tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete "${GITHUB_REF_NAME}" --yes || true
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
