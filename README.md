@@ -47,7 +47,7 @@
 
 ## 📦 下载安装
 
-前往 [Releases](https://github.com/your-github-username/comic-realm/releases) 页面下载对应平台的安装包：
+前往 [Releases](https://github.com/2016YYy/comic-realm/releases) 页面下载对应平台的安装包：
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
@@ -68,7 +68,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/your-github-username/comic-realm.git
+git clone https://github.com/2016YYy/comic-realm.git
 cd comic-realm
 
 # 2. 安装依赖
@@ -139,7 +139,7 @@ comic_realm/
 - 本软件仅供个人学习交流使用，**严禁用于任何商业用途**
 - 使用者应遵守所在国家或地区的法律法规
 - 因使用本软件产生的一切法律责任由使用者自行承担
-- 如本软件的任何内容侵犯了您的合法权益，请通过 [GitHub Issue](https://github.com/your-github-username/comic-realm/issues) 联系开发者，我们将在第一时间处理
+- 如本软件的任何内容侵犯了您的合法权益，请通过 [GitHub Issue](https://github.com/2016YYy/comic-realm/issues) 联系开发者，我们将在第一时间处理
 
 ---
 

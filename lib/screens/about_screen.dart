@@ -50,7 +50,7 @@ class _AboutScreenState extends State<AboutScreen> {
               title: const Text('开源仓库'),
               subtitle: const Text('GitHub: comic-realm'),
               onTap: () async {
-                final url = Uri.parse('https://github.com/your-github-username/comic-realm');
+                final url = Uri.parse('https://github.com/2016YYy/comic-realm');
                 if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
               },
             ),

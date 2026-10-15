@@ -30,7 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _checkUpdate() async {
     setState(() => _checking = true);
     // 仓库名需与实际 GitHub 仓库一致
-    final updater = Updater(owner: 'your-github-username', repo: 'comic-realm');
+    final updater = Updater(owner: '2016YYy', repo: 'comic-realm');
     final update = await updater.checkUpdate();
     if (!mounted) return;
     setState(() => _checking = false);
