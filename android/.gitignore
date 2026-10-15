@@ -12,3 +12,5 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# 例外：本项目使用统一发布签名，release-keystore.jks 需随仓库提交
+!app/release-keystore.jks

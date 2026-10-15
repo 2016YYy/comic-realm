@@ -1,12 +1,17 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../core/http_client.dart';
+import '../core/native_cookie_manager.dart';
 
-/// 通过 WebView 访问图源站点，手动通过 Cloudflare 验证，
-/// 验证通过后将 Cookie 同步到应用的 CookieJar，使后续请求正常。
+/// 通过 WebView 访问图源站点，手动通过反爬验证（Cloudflare / Gatekeeper PoW 等），
+/// 验证通过后将全部 Cookie（含 HttpOnly）同步到应用的 CookieJar，使后续请求正常。
 class WebViewLoginScreen extends StatefulWidget {
-  const WebViewLoginScreen({super.key});
+  /// 初始加载的 URL，通常为图源的搜索页或首页。
+  final String? initialUrl;
+
+  const WebViewLoginScreen({super.key, this.initialUrl});
 
   @override
   State<WebViewLoginScreen> createState() => _WebViewLoginScreenState();
@@ -14,12 +19,13 @@ class WebViewLoginScreen extends StatefulWidget {
 
 class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   late final WebViewController _controller;
-  final TextEditingController _urlController = TextEditingController(text: 'https://mycomic.com');
+  late final TextEditingController _urlController;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(text: widget.initialUrl ?? 'https://cn.bzmgcn.com');
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -27,7 +33,8 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
           onPageStarted: (_) => setState(() => _loading = true),
           onPageFinished: (_) async {
             setState(() => _loading = false);
-            // 将 WebView 中的 Cookie 同步到应用的 CookieJar
+            // 将 WebView 中的全部 Cookie（含 HttpOnly）同步到应用 CookieJar。
+            // document.cookie 拿不到 HttpOnly，故走原生 CookieManager。
             await _syncCookies();
           },
         ),
@@ -37,18 +44,10 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
 
   Future<void> _syncCookies() async {
     try {
-      final cookies = await _controller.runJavaScriptReturningResult('document.cookie');
-      if (cookies is String && cookies.isNotEmpty) {
-        final uri = Uri.parse(_urlController.text);
-        final cookieJar = HttpClient().cookieJar;
-        final cookieList = cookies.split(';').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
-        await cookieJar.saveFromResponse(uri, cookieList.map((c) {
-          final idx = c.indexOf('=');
-          if (idx > 0) {
-            return Cookie(c.substring(0, idx), c.substring(idx + 1));
-          }
-          return Cookie(c, '');
-        }).toList());
+      final uri = Uri.parse(_urlController.text);
+      final cookies = await NativeCookieManager.getCookies(_urlController.text);
+      if (cookies.isNotEmpty) {
+        await HttpClient().cookieJar.saveFromResponse(uri, cookies);
       }
     } catch (_) {}
   }
@@ -66,10 +65,16 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
       appBar: AppBar(
         title: const Text('过验证'),
         actions: [
-          IconButton(icon: const Icon(Icons.check), tooltip: '验证完成', onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cookie 已同步，返回即可正常使用')));
-            Navigator.pop(context);
-          }),
+          IconButton(
+            icon: const Icon(Icons.check),
+            tooltip: '验证完成',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Cookie 已同步，返回即可正常使用')),
+              );
+              Navigator.pop(context);
+            },
+          ),
         ],
       ),
       body: Column(
@@ -81,7 +86,11 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
                 Expanded(
                   child: TextField(
                     controller: _urlController,
-                    decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      hintText: '输入图源地址',
+                    ),
                     onSubmitted: (_) => _go(),
                   ),
                 ),
