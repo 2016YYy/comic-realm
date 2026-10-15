@@ -25,11 +25,22 @@ jobs:
           channel: 'stable'
       - run: flutter pub get
       - run: flutter build apk --release --split-per-abi
+      - name: Rename APK artifacts
+        run: |
+          VERSION=$(awk '/^version:/{print $2}' pubspec.yaml | cut -d'+' -f1)
+          cd build/app/outputs/flutter-apk
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            src="app-${abi}-release.apk"
+            if [ -f "$src" ]; then
+              cp "$src" "ComicRealm-v${VERSION}-android-${abi}.apk"
+            fi
+          done
+          ls -l ComicRealm-*.apk
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/ComicRealm-*.apk
 
   build-windows:
     name: Build Windows
@@ -46,13 +57,14 @@ jobs:
       - name: Package Windows build
         shell: bash
         run: |
+          VERSION=$(grep '^version:' pubspec.yaml | head -1 | sed 's/.*: *//' | cut -d'+' -f1)
           cd build/windows/x64/runner/Release
-          7z a -tzip ../../../../../comic-realm-windows.zip .
+          7z a -tzip "../../../../../ComicRealm-v${VERSION}-windows-x64.zip" .
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: comic-realm-windows.zip
+          path: ComicRealm-*.zip
 
   build-ios:
     name: Build iOS (no-signed)
@@ -67,15 +79,16 @@ jobs:
       - run: flutter build ios --release --no-codesign
       - name: Zip iOS build
         run: |
+          VERSION=$(grep '^version:' pubspec.yaml | head -1 | sed 's/.*: *//' | cut -d'+' -f1)
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -R Runner.app Payload/
-          zip -r ../../../comic-realm-ios.ipa Payload
+          zip -r "../../../ComicRealm-v${VERSION}-ios-unsigned.ipa" Payload
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: comic-realm-ios.ipa
+          path: ComicRealm-*.ipa
 
   release:
     name: Create GitHub Release
@@ -92,7 +105,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            artifacts/android-apk/*.apk
-            artifacts/windows-zip/*.zip
-            artifacts/ios-ipa/*.ipa
+            artifacts/android-apk/ComicRealm-*.apk
+            artifacts/windows-zip/ComicRealm-*.zip
+            artifacts/ios-ipa/ComicRealm-*.ipa
           generate_release_notes: true
