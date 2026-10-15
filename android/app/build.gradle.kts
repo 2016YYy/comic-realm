@@ -33,21 +33,21 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // 使用统一发布签名证书，确保后续版本升级时签名一致。
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
-        }
-    }
-
     signingConfigs {
         create("release") {
             storeFile = file("release-keystore.jks")
             storePassword = "comicrealm2026"
             keyAlias = "comicrealm"
             keyPassword = "comicrealm2026"
+        }
+    }
+
+    buildTypes {
+        release {
+            // 使用统一发布签名证书，确保后续版本升级时签名一致。
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

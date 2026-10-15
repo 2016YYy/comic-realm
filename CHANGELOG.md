@@ -7,6 +7,22 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-15
+
+### 修复
+
+- 统一发布签名：修正 `build.gradle.kts` 中 `signingConfigs` 与 `buildTypes` 的声明顺序，确保 release 构建始终使用 `release-keystore.jks` 签名，后续版本升级签名一致
+- 内置图源「包子漫画」恢复可用：站点启用 Gatekeeper PoW 反爬后，通过原生 HTTP 栈（Android HttpURLConnection / iOS URLSession）自动求解挑战，解决了 `dart:io HttpClient` 不复用 HTTPS 连接导致的 `binding_mismatch`
+- 原生求解器同时返回 browser cookie 与 clearance cookie，保证重试请求能通过验证
+- 修复跨域 Gatekeeper：章节页从 `cn.bzmgcn.com` 302 跳转到 `cn.cnbzmg.com` 后，使用响应的真实地址（`realUri`）而非原始请求地址求解挑战，确保命中正确域名；允许多次重试应对连续挑战
+- 清理调试代码与临时文件
+
+### 变更
+
+- Gatekeeper PoW 求解逻辑下沉到原生层，Dart 端仅负责触发与保存 clearance cookie
+- iOS 端通过 `HTTPCookieStorage` 自动管理验证过程中的 cookie
+- 将线上集成测试从 `flutter test` 自动运行中移出（需真机 + 原生求解器），避免 CI 误报
+
 ## [1.0.3] - 2026-10-15
 
 ### 新增
@@ -74,7 +90,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/2016YYy/comic-realm/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/2016YYy/comic-realm/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/2016YYy/comic-realm/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/2016YYy/comic-realm/compare/v1.0.0...v1.0.1
