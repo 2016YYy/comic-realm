@@ -31,9 +31,12 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen> {
   late int _currentIndex;
   List<String> _images = [];
+  String _text = '';
   bool _loading = true;
   String? _error;
   bool _chromeVisible = true;
+
+  bool get _isNovel => widget.source.isNovel;
 
   @override
   void initState() {
@@ -47,16 +50,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _loading = true;
       _error = null;
       _images = [];
+      _text = '';
     });
     final comicService = context.read<ComicService>();
     final chapter = widget.chapters[_currentIndex];
     try {
-      final images = await comicService.getContent(widget.source, chapter, widget.comic);
-      if (!mounted) return;
-      setState(() {
-        _images = images;
-        _loading = false;
-      });
+      if (_isNovel) {
+        final text = await comicService.getContentText(widget.source, chapter, widget.comic);
+        if (!mounted) return;
+        setState(() {
+          _text = text;
+          _loading = false;
+        });
+      } else {
+        final images = await comicService.getContent(widget.source, chapter, widget.comic);
+        if (!mounted) return;
+        setState(() {
+          _images = images;
+          _loading = false;
+        });
+      }
       // 记录阅读历史
       context.read<HistoryService>().record(
             comic: widget.comic,
@@ -136,6 +149,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (_error != null) {
       return ErrorView(message: '本章加载失败', detail: _error, onRetry: _loadChapter);
     }
+
+    if (_isNovel) {
+      if (_text.trim().isEmpty) {
+        return const EmptyView(icon: Icons.article_outlined, title: '本章没有内容');
+      }
+      return _buildNovelText();
+    }
+
     if (_images.isEmpty) {
       return const EmptyView(icon: Icons.image_not_supported_outlined, title: '本章没有图片');
     }
@@ -153,6 +174,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
         maxScale: 4,
         child: Center(child: _ReaderImage(url: _images[i])),
       ),
+    );
+  }
+
+  Widget _buildNovelText() {
+    final settings = context.watch<SettingsService>();
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      children: [
+        Text(
+          _text,
+          style: TextStyle(
+            fontSize: settings.readerFontSize.toDouble(),
+            height: 1.8,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 }

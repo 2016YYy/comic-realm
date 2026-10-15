@@ -21,7 +21,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('导入图源'),
+          title: const Text('导入图源 / 书源'),
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.link), text: '网络地址'),
@@ -63,8 +63,11 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '图源规则格式兼容 开源阅读(legado) / 异次元 的 JSON 图源。\n'
-            '可在 https://www.yckceo.com/yiciyuan/tuyuan/index.html 等图源站找到图源链接。',
+            '图源 / 书源规则兼容 开源阅读(legado) / 异次元 的 JSON 格式，'
+            '支持文本小说源与漫画图源。\n'
+            '可在源仓库站获取源地址：\n'
+            '• 图源：https://www.yckceo.com/yiciyuan/tuyuans/json/id/50.json\n'
+            '• 书源：https://www.yckceo.com/yuedu/shuyuans/json/id/293.json',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
         ],

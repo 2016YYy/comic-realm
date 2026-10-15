@@ -197,52 +197,12 @@ class SourceService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 内置图源：从 assets/sources 加载并初始化
+  /// 内置图源初始化。
+  ///
+  /// v1.1.0 起不再内置任何图源，所有图源均由用户自行导入
+  /// （兼容开源阅读 / 异次元 JSON 格式）。
   Future<void> loadBuiltInSources() async {
-    if (AppDatabase.sources.isNotEmpty) return;
-    final builtin = _builtInBaoziSource();
-    await AppDatabase.sources.put(builtin.bookSourceUrl, builtin);
+    // 保留此方法以兼容旧调用，但不再注入默认图源。
     notifyListeners();
-  }
-
-  /// 内置「包子漫画」图源：规则基于该站真实 DOM 结构编写，开箱即可搜索 / 浏览分类。
-  ComicSource _builtInBaoziSource() {
-    return ComicSource(
-      bookSourceUrl: 'https://cn.bzmgcn.com',
-      bookSourceName: '包子漫画',
-      bookSourceGroup: '内置',
-      bookSourceType: '漫画',
-      httpUserAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      ruleSearchUrl: 'https://cn.bzmgcn.com/search?q=searchKey',
-      ruleSearchList: '.comics-card',
-      ruleSearchName: '.comics-card__title h3@text',
-      ruleSearchAuthor: '.comics-card__info small@text',
-      ruleSearchCoverUrl: '.comics-card__poster amp-img@src',
-      ruleSearchNoteUrl: '.comics-card__info@href',
-      ruleBookName: '.comics-detail__title@text',
-      ruleCoverUrl: 'amp-img@src',
-      ruleBookAuthor: '.comics-detail__author@text',
-      ruleIntroduce: '.comics-detail__desc@text',
-      ruleChapterList: '#chapter-items a.comics-chapters__item',
-      ruleChapterName: 'span@text',
-      ruleContentUrl: '@href',
-      ruleBookContent: '.comic-contain amp-img@src',
-      ruleFindUrl: [
-        '最新上架::https://cn.bzmgcn.com/list/new',
-        '全部::https://cn.bzmgcn.com/classify?type=all&region=all&state=all&filter=%2a',
-        '国漫::https://cn.bzmgcn.com/classify?type=all&region=cn&state=all&filter=%2a',
-        '日本::https://cn.bzmgcn.com/classify?type=all&region=jp&state=all&filter=%2a',
-        '韩国::https://cn.bzmgcn.com/classify?type=all&region=kr&state=all&filter=%2a',
-        '热血::https://cn.bzmgcn.com/classify?type=rexie&region=all&state=all&filter=%2a',
-        '恋爱::https://cn.bzmgcn.com/classify?type=lianai&region=all&state=all&filter=%2a',
-        '搞笑::https://cn.bzmgcn.com/classify?type=gaoxiao&region=all&state=all&filter=%2a',
-        '科幻::https://cn.bzmgcn.com/classify?type=kehuan&region=all&state=all&filter=%2a',
-        '悬疑::https://cn.bzmgcn.com/classify?type=xuanyi&region=all&state=all&filter=%2a',
-      ].join('\n'),
-      enable: true,
-      sourceRemark: '内置图源（包子漫画），支持搜索、分类浏览、收藏与阅读。如遇访问验证，请在图源详情页点击「过验证」。',
-      weight: 1000,
-    );
   }
 }

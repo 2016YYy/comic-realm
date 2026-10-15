@@ -40,6 +40,7 @@ class SettingsService extends ChangeNotifier {
   static const _kAutoCheckUpdate = 'autoCheckUpdate';
   static const _kSkippedVersion = 'skippedVersion';
   static const _kReaderContinuous = 'readerContinuous';
+  static const _kReaderFontSize = 'readerFontSize';
 
   Box get _box => AppDatabase.settings;
 
@@ -103,6 +104,19 @@ class SettingsService extends ChangeNotifier {
 
   set readerContinuous(bool value) {
     _box.put(_kReaderContinuous, value);
+    notifyListeners();
+  }
+
+  /// 小说正文字号（像素），默认 18。
+  double get readerFontSize {
+    final v = _box.get(_kReaderFontSize);
+    if (v is int) return v.toDouble();
+    if (v is double) return v;
+    return 18;
+  }
+
+  set readerFontSize(double value) {
+    _box.put(_kReaderFontSize, value);
     notifyListeners();
   }
 

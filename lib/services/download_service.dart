@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -45,32 +46,48 @@ class DownloadService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final images = await _engine.getContent(source, chapter, comic);
-      task.totalPages = images.length;
-      await task.save();
+      if (source.isNovel) {
+        // 小说源：下载文本内容保存为 .txt
+        final text = await _engine.getContentText(source, chapter, comic);
+        task.totalPages = 1;
+        await task.save();
 
-      final dir = await _getChapterDir(comic.name, chapter.name);
-      var downloaded = 0;
-      for (var i = 0; i < images.length; i++) {
-        final url = images[i];
-        final ext = p.extension(Uri.parse(url).path).isNotEmpty
-            ? p.extension(Uri.parse(url).path)
-            : '.jpg';
-        final fileName = '${i.toString().padLeft(4, '0')}$ext';
-        final filePath = p.join(dir.path, fileName);
-        try {
-          await _http.download(url, filePath, userAgent: source.httpUserAgent);
-          downloaded++;
-          task.downloadedPages = downloaded;
-          await task.save();
-          notifyListeners();
-        } catch (e) {
-          // 单页失败不中断
+        final dir = await _getChapterDir(comic.name, chapter.name);
+        final filePath = p.join(dir.path, 'content.txt');
+        await File(filePath).writeAsString(text, encoding: utf8);
+        task.downloadedPages = 1;
+        task.savePath = dir.path;
+        task.statusEnum = text.isNotEmpty ? DownloadStatus.completed : DownloadStatus.failed;
+        await task.save();
+      } else {
+        // 漫画源：下载图片
+        final images = await _engine.getContent(source, chapter, comic);
+        task.totalPages = images.length;
+        await task.save();
+
+        final dir = await _getChapterDir(comic.name, chapter.name);
+        var downloaded = 0;
+        for (var i = 0; i < images.length; i++) {
+          final url = images[i];
+          final ext = p.extension(Uri.parse(url).path).isNotEmpty
+              ? p.extension(Uri.parse(url).path)
+              : '.jpg';
+          final fileName = '${i.toString().padLeft(4, '0')}$ext';
+          final filePath = p.join(dir.path, fileName);
+          try {
+            await _http.download(url, filePath, userAgent: source.httpUserAgent);
+            downloaded++;
+            task.downloadedPages = downloaded;
+            await task.save();
+            notifyListeners();
+          } catch (e) {
+            // 单页失败不中断
+          }
         }
+        task.savePath = dir.path;
+        task.statusEnum = downloaded > 0 ? DownloadStatus.completed : DownloadStatus.failed;
+        await task.save();
       }
-      task.savePath = dir.path;
-      task.statusEnum = downloaded > 0 ? DownloadStatus.completed : DownloadStatus.failed;
-      await task.save();
     } catch (e) {
       task.statusEnum = DownloadStatus.failed;
       await task.save();

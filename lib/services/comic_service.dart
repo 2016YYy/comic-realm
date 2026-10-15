@@ -72,6 +72,11 @@ class ComicService extends ChangeNotifier {
     return engine.getContent(source, chapter, comic);
   }
 
+  /// 获取小说章节文本（文本源专用）。
+  Future<String> getContentText(ComicSource source, Chapter chapter, Comic comic) {
+    return engine.getContentText(source, chapter, comic);
+  }
+
   /// 收藏
   Future<void> addFavorite(Comic comic) async {
     comic.isFavorite = true;

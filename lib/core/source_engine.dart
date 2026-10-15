@@ -145,6 +145,30 @@ class SourceEngine {
     return urls.where((u) => seen.add(u)).toList();
   }
 
+  /// 获取小说章节文本内容（用于文本源，区别于 [getContent] 的图片列表）。
+  Future<String> getContentText(
+      ComicSource source, Chapter chapter, Comic comic) async {
+    final parsed = RuleParser.parse(source.ruleBookContent);
+    final headers = parsed.headers;
+    final html = await _http.getString(chapter.url,
+        headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
+    final doc = html_parser.parse(html);
+    final env = EvalEnv(raw: html, baseUrl: chapter.url);
+
+    final results = await _runParsed(parsed, doc, env);
+    final paragraphs = <String>[];
+    for (final r in results) {
+      final s = _stringify(r).trim();
+      if (s.isEmpty) continue;
+      // 按换行拆分段落，去除空行
+      for (final line in s.split(RegExp(r'\n+'))) {
+        final t = line.trim();
+        if (t.isNotEmpty) paragraphs.add(t);
+      }
+    }
+    return paragraphs.join('\n\n');
+  }
+
   // -------------------- 列表解析 --------------------
 
   Future<List<Comic>> _parseComicList(
