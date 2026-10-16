@@ -162,6 +162,106 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
       ],
     );
   }
+
+  Future<void> _importFromUrl() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入地址')));
+      return;
+    }
+    setState(() => _importing = true);
+    try {
+      final imported = await context.read<SourceService>().importFromUrl(url);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _importFromFile() async {
+    final sourceService = context.read<SourceService>();
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json', 'txt'],
+    );
+    if (result == null || result.files.single.path == null) return;
+    setState(() => _importing = true);
+    try {
+      final imported = await sourceService.importFromFile(result.files.single.path!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _importFromQr(String content) async {
+    setState(() => _importing = true);
+    try {
+      final imported = await context.read<SourceService>().importFromJson(content);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  /// 从系统相册选择图片，识别其中的二维码并导入图源。
+  Future<void> _importFromAlbum() async {
+    setState(() => _importing = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+      if (result == null || result.files.single.path == null) {
+        if (mounted) setState(() => _importing = false);
+        return;
+      }
+      final imagePath = result.files.single.path!;
+
+      // 使用 mobile_scanner 的 analyzeImage 从图片中解析二维码
+      final controller = MobileScannerController();
+      final capture = await controller.analyzeImage(imagePath);
+      await controller.dispose();
+
+      if (capture == null || capture.barcodes.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未在图片中识别到二维码')),
+        );
+        return;
+      }
+
+      final value = capture.barcodes.first.rawValue;
+      if (value == null || value.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('二维码内容为空')),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      await _importFromQr(value);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('识别失败：$e')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
 }
 
 /// 扫描框四角的 L 形标记
@@ -315,105 +415,4 @@ class _ScanLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ScanLinePainter oldDelegate) =>
       oldDelegate.progress != progress;
-}
-
-  Future<void> _importFromUrl() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入地址')));
-      return;
-    }
-    setState(() => _importing = true);
-    try {
-      final imported = await context.read<SourceService>().importFromUrl(url);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
-  }
-
-  Future<void> _importFromFile() async {
-    final sourceService = context.read<SourceService>();
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json', 'txt'],
-    );
-    if (result == null || result.files.single.path == null) return;
-    setState(() => _importing = true);
-    try {
-      final imported = await sourceService.importFromFile(result.files.single.path!);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
-  }
-
-  Future<void> _importFromQr(String content) async {
-    setState(() => _importing = true);
-    try {
-      final imported = await context.read<SourceService>().importFromJson(content);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
-  }
-
-  /// 从系统相册选择图片，识别其中的二维码并导入图源。
-  Future<void> _importFromAlbum() async {
-    setState(() => _importing = true);
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-      );
-      if (result == null || result.files.single.path == null) {
-        if (mounted) setState(() => _importing = false);
-        return;
-      }
-      final imagePath = result.files.single.path!;
-
-      // 使用 mobile_scanner 的 analyzeImage 从图片中解析二维码
-      final controller = MobileScannerController();
-      final capture = await controller.analyzeImage(imagePath);
-      await controller.dispose();
-
-      if (capture == null || capture.barcodes.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未在图片中识别到二维码')),
-        );
-        return;
-      }
-
-      final value = capture.barcodes.first.rawValue;
-      if (value == null || value.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('二维码内容为空')),
-        );
-        return;
-      }
-
-      if (!mounted) return;
-      await _importFromQr(value);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('识别失败：$e')));
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
-  }
 }

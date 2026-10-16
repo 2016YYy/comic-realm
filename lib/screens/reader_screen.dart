@@ -76,17 +76,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _currentIndex = widget.initialIndex;
     if (_isOffline) {
       // 离线模式：直接使用传入内容
-      setState(() {
-        _images = widget.offlineImages ?? [];
-        _text = widget.offlineText ?? '';
-        _loading = false;
-      });
+      _images = widget.offlineImages ?? [];
+      _text = widget.offlineText ?? '';
+      _loading = false;
     } else {
       _loadChapter();
     }
   }
 
   Future<void> _loadChapter() async {
+    final source = widget.source;
+    final chapters = widget.chapters;
+    if (source == null || chapters == null || chapters.isEmpty) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -94,17 +95,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _text = '';
     });
     final comicService = context.read<ComicService>();
-    final chapter = widget.chapters[_currentIndex];
+    final chapter = chapters[_currentIndex];
     try {
       if (_isNovel) {
-        final text = await comicService.getContentText(widget.source, chapter, widget.comic);
+        final text = await comicService.getContentText(source, chapter, widget.comic);
         if (!mounted) return;
         setState(() {
           _text = text;
           _loading = false;
         });
       } else {
-        final images = await comicService.getContent(widget.source, chapter, widget.comic);
+        final images = await comicService.getContent(source, chapter, widget.comic);
         if (!mounted) return;
         setState(() {
           _images = images;
@@ -134,7 +135,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _next() {
-    if (_currentIndex < widget.chapters.length - 1) {
+    final count = widget.chapters?.length ?? 0;
+    if (_currentIndex < count - 1) {
       setState(() => _currentIndex++);
       _loadChapter();
     }
