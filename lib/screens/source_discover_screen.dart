@@ -260,7 +260,6 @@ class _ComicTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final comicService = context.watch<ComicService>();
     final favorited = comicService.isFavorite(comic.noteUrl);
-    final scheme = Theme.of(context).colorScheme;
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
