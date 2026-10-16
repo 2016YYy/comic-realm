@@ -17,6 +17,18 @@ class DownloadService extends ChangeNotifier {
   List<DownloadTask> get tasks => AppDatabase.downloads.values.toList()
     ..sort((a, b) => b.createTime.compareTo(a.createTime));
 
+  /// 该本漫画是否有已完成的下载（用于书架「已下载」筛选）。
+  bool hasDownloadsFor(Comic comic) {
+    for (final t in AppDatabase.downloads.values) {
+      if (t.statusEnum == DownloadStatus.completed &&
+          t.comicName == comic.name &&
+          t.sourceUrl == comic.sourceUrl) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// 创建下载任务并执行
   Future<DownloadTask> downloadChapter({
     required ComicSource source,

@@ -55,6 +55,7 @@ class SourceEngine {
 
   /// 获取漫画详情
   Future<Comic> getDetail(ComicSource source, Comic comic) async {
+    _ensureHttp(comic.noteUrl, '漫画详情');
     final (_, headers) = RuleParser.splitHeader(comic.noteUrl);
     final html = await _http.getString(comic.noteUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
@@ -88,6 +89,7 @@ class SourceEngine {
 
     // 章节列表请求 URL：优先使用 ruleChapterUrl（支持 thisPage / @js），否则用详情页 URL
     final chapterUrl = await _resolveChapterUrl(source, comic.noteUrl);
+    _ensureHttp(chapterUrl, '章节列表');
     final (_, headers) = RuleParser.splitHeader(chapterUrl);
     final html = await _http.getString(chapterUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
@@ -119,6 +121,7 @@ class SourceEngine {
   /// 获取章节图片 URL 列表
   Future<List<String>> getContent(
       ComicSource source, Chapter chapter, Comic comic) async {
+    _ensureHttp(chapter.url, '章节内容');
     final headers = RuleParser.splitHeader(source.ruleBookContent).$2;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
@@ -175,6 +178,7 @@ class SourceEngine {
   /// 获取小说章节文本内容（用于文本源，区别于 [getContent] 的图片列表）。
   Future<String> getContentText(
       ComicSource source, Chapter chapter, Comic comic) async {
+    _ensureHttp(chapter.url, '章节内容');
     final headers = RuleParser.splitHeader(source.ruleBookContent).$2;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
@@ -243,6 +247,18 @@ class SourceEngine {
       return rule;
     }
     return _http.absoluteUrl(noteUrl, rule);
+  }
+
+  /// 校验请求地址是否可解析为带主机名的 http(s) 地址。
+  ///
+  /// 规则里经常出现相对地址 / 空地址（例如搜索列表未配置 noteUrl、
+  /// ruleChapterUrl 为相对路径而详情页地址为空），直接交给网络层会抛出
+  /// 「No host specified in URI」这种难以理解的底层错误，这里提前拦截并
+  /// 给出可读提示。
+  void _ensureHttp(String url, String what) {
+    if (HttpClient.isHttpUrl(url)) return;
+    final shown = url.trim().isEmpty ? '(空地址)' : url.trim();
+    throw Exception('$what地址无效（缺少主机名）：$shown');
   }
 
   // -------------------- 列表解析 --------------------
@@ -373,13 +389,11 @@ class SourceEngine {
 
     final js = parsed.jsCode;
     if (js != null && js.trim().isNotEmpty) {
-      // 检测 legado Java 互操作（org.jsoup / java.fetch 等），纯 JS 引擎不支持
-      if (js.contains('org.jsoup') ||
-          js.contains('java.fetch') ||
-          js.contains('java.setContent') ||
-          js.contains('java.getStringList') ||
-          js.contains('Packages.')) {
-        throw Exception('该图源使用了 Java 扩展脚本（legado 私有），暂不支持');
+      // 仅 org.jsoup（需要真正的 DOM 解析）无法在当前 JS 引擎模拟；
+      // java.ajax / base64 / Packages.java 等常见 API 已由 JsRuntime 注入的
+      // shim 提供（见 js_runtime.dart），因此不再一概拒绝。
+      if (js.contains('org.jsoup') || js.contains('Packages.org')) {
+        throw Exception('该图源使用了 Java 扩展脚本（org.jsoup / legado 私有），暂不支持');
       }
       final arg = (parsed.steps.isEmpty && parsed.attr == null)
           ? env.raw

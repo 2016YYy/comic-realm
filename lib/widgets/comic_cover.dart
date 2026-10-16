@@ -34,6 +34,9 @@ class ComicCover extends StatelessWidget {
                 fit: fit,
                 width: width,
                 height: height,
+                // 很多图源开启了防盗链，直接请求图片会被 403，
+                // 这里按图片自身域名补一个 Referer 头即可正常显示。
+                httpHeaders: imageHeaders(url),
                 fadeInDuration: const Duration(milliseconds: 180),
                 placeholder: (_, __) => _placeholder(scheme, null),
                 errorWidget: (_, __, ___) =>
@@ -41,6 +44,17 @@ class ComicCover extends StatelessWidget {
               ),
       ),
     );
+  }
+
+  /// 依据图片地址推导同源 Referer，用于绕过常见防盗链。
+  static Map<String, String>? imageHeaders(String url) {
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host.isEmpty) return null;
+      return {'Referer': '${uri.scheme}://${uri.host}/'};
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _placeholder(ColorScheme scheme, IconData? icon) {

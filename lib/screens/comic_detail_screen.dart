@@ -33,7 +33,7 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
   void initState() {
     super.initState();
     _comic = widget.comic;
-    _favorited = context.read<ComicService>().isFavorite(_comic.noteUrl, sourceUrl: _comic.sourceUrl);
+    _favorited = context.read<ComicService>().isFavoriteComic(_comic);
     _source = _resolveSource();
     if (_source == null) {
       _loading = false;
@@ -161,7 +161,7 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Hero(
-            tag: 'cover-${_comic.noteUrl}',
+            tag: _comic.heroTag,
             child: ComicCover(url: _comic.coverUrl, width: 108, height: 150),
           ),
           const SizedBox(width: 16),

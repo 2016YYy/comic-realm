@@ -79,13 +79,10 @@ class ComicService extends ChangeNotifier {
 
   /// 收藏键：sourceUrl + '\u0000' + (noteUrl 为空时用 name 兜底)。
   /// 之前用 noteUrl 当键，分类页漫画 noteUrl 常为空，导致所有漫画共用空键，
-  /// 收藏一个就会让整页爱心全亮。
-  static String favoriteKey(Comic comic) {
-    final id = comic.noteUrl.isNotEmpty ? comic.noteUrl : comic.name;
-    return '${comic.sourceUrl}\u0000$id';
-  }
+  /// 收藏一个就会让整页爱心全亮。现在统一走 [Comic.uniqueKey]。
+  static String favoriteKey(Comic comic) => comic.uniqueKey;
 
-  /// 将旧版仅用 noteUrl 存的收藏迁移到复合键，保证升级后收藏不丢失。
+  /// 将旧版仅用 noteUrl 存的收藏迁移到复合键，并合并重复条目，保证升级后收藏不丢失。
   static Future<void> migrateFavorites() async {
     final box = AppDatabase.favorites;
     final oldKeys = box.keys.whereType<String>().where((k) => !k.contains('\u0000')).toList();
@@ -130,23 +127,51 @@ class ComicService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 判断某本漫画是否已收藏（用统一的 [Comic.uniqueKey]，noteUrl 为空时
+  /// 会回退到书名，避免空键误判）。所有调用方都应使用它而不是自己拼键。
+  bool isFavoriteComic(Comic comic) =>
+      AppDatabase.favorites.containsKey(comic.uniqueKey);
+
+  /// 兼容旧调用：仅当 noteUrl 非空时可用；noteUrl 为空的漫画请改用
+  /// [isFavoriteComic]。
   bool isFavorite(String noteUrl, {String sourceUrl = ''}) {
-    // 兼容旧调用：只传 noteUrl 时回退到新逻辑需要同时传 sourceUrl
+    if (noteUrl.isEmpty) {
+      // 旧逻辑会用空键匹配，容易误判，这里改为按图源+书名兜底匹配
+      for (final c in AppDatabase.favorites.values) {
+        if (c.sourceUrl == sourceUrl && c.name == noteUrl) return true;
+      }
+      return false;
+    }
     return AppDatabase.favorites.containsKey('$sourceUrl\u0000$noteUrl');
   }
 
   /// 触发一次刷新（例如书库下拉刷新）
   void reload() => notifyListeners();
 
-  List<Comic> get favorites => AppDatabase.favorites.values.toList();
+  /// 书架漫画：按 [Comic.uniqueKey] 去重，避免同一本漫画出现多个封面。
+  List<Comic> get favorites {
+    final seen = <String>{};
+    final out = <Comic>[];
+    for (final c in AppDatabase.favorites.values) {
+      if (seen.add(c.uniqueKey)) out.add(c);
+    }
+    return out;
+  }
 
   /// 将网络/解析异常转换为用户可读的中文提示。
   static String friendlyError(Object e) {
     final msg = e.toString();
 
-    // DNS 解析失败
-    if (msg.contains('Failed host lookup') || msg.contains('SocketException')) {
-      final hostMatch = RegExp(r"'([^']+)'").firstMatch(msg);
+    // 连接被源站重置：SocketException 常见于此，必须先于下面的 DNS 分支判断
+    if (msg.contains('Connection reset')) {
+      return '连接被源站重置，请稍后重试或更换网络';
+    }
+
+    // DNS 解析失败（域名解析不到 / 主机不存在）
+    if (msg.contains('Failed host lookup') ||
+        (msg.contains('SocketException') && msg.contains('address'))) {
+      final hostMatch = RegExp(r"address = ([^,\s]+)").firstMatch(msg) ??
+          RegExp(r"'([^']+)'").firstMatch(msg);
       final host = hostMatch?.group(1) ?? '目标网站';
       return '无法连接到 $host（域名解析失败，该源站可能已失效）';
     }
@@ -164,6 +189,12 @@ class ComicService extends ChangeNotifier {
     // 连接被拒绝
     if (msg.contains('Connection refused') || msg.contains('connectionError')) {
       return '连接被拒绝，该源站可能已下线';
+    }
+
+    // 地址无效（相对 / 空地址）
+    if (msg.contains('No host specified') ||
+        msg.contains('缺少主机名')) {
+      return '链接地址无效（缺少主机名），可能是该图源规则缺少详情页地址';
     }
 
     // HTTP 错误状态码

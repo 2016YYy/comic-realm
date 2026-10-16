@@ -35,6 +35,11 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
   void initState() {
     super.initState();
     _categories.addAll(widget.source.findCategories);
+    // 图源未配置分类（ruleFindUrl / exploreUrl）时，用图源首页兜底，
+    // 避免直接提示「该图源未配置分类」而完全无法浏览。
+    if (_categories.isEmpty && widget.source.bookSourceUrl.isNotEmpty) {
+      _categories.add(FindCategory('首页', widget.source.bookSourceUrl));
+    }
     if (_categories.isNotEmpty) {
       // 优先使用传入的初始分类，找不到则回退到第一个
       final initTitle = widget.initialCategory;
@@ -272,7 +277,7 @@ class _ComicTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final comicService = context.watch<ComicService>();
-    final favorited = comicService.isFavorite(comic.noteUrl, sourceUrl: comic.sourceUrl);
+    final favorited = comicService.isFavoriteComic(comic);
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),

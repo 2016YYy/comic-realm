@@ -233,6 +233,12 @@ class HttpClient {
     Map<String, String>? headers,
     String? userAgent,
   }) async {
+    // 先校验地址，避免把相对 / 空地址交给 Dio 触发
+    // 「Invalid argument(s): No host specified in URI」这类底层报错。
+    if (!isHttpUrl(url)) {
+      throw Exception(
+          '无效的请求地址（缺少主机名）：${url.trim().isEmpty ? '(空地址)' : url.trim()}');
+    }
     final h = <String, String>{};
     if (userAgent != null && userAgent.isNotEmpty) {
       h['User-Agent'] = userAgent;
@@ -246,15 +252,64 @@ class HttpClient {
       validateStatus: (_) => true,
     );
 
-    var resp = await _dio.get<List<int>>(url, options: opts);
+    // 瞬时网络错误（Connection reset / 超时）自动退避重试。
+    var resp = await _getWithTransientRetry(url, opts);
     // 最多重试 3 次，应对跨域跳转后连续触发的 Gatekeeper 挑战。
     for (var i = 0; i < 3 && _isGatekeeperChallenge(resp); i++) {
       // 使用跳转后的真实地址求解，确保原生求解器命中正确的域名。
       final target = resp.realUri.toString();
       await _solveGatekeeperChallenge(target);
-      resp = await _dio.get<List<int>>(url, options: opts);
+      resp = await _getWithTransientRetry(url, opts);
     }
     return resp;
+  }
+
+  /// 对「连接被重置 / 连接超时 / 临时不可达」等瞬时错误做有限次退避重试。
+  Future<Response<List<int>>> _getWithTransientRetry(
+    String url,
+    Options opts,
+  ) async {
+    const maxRetries = 2;
+    var attempt = 0;
+    while (true) {
+      try {
+        return await _dio.get<List<int>>(url, options: opts);
+      } on DioException catch (e) {
+        if (attempt < maxRetries && _isTransientError(e)) {
+          attempt++;
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  /// 判断是否为可重试的瞬时网络错误。
+  bool _isTransientError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      default:
+        break;
+    }
+    final msg = e.message ?? '';
+    return msg.contains('Connection reset') ||
+        msg.contains('SocketException') ||
+        msg.contains('timed out') ||
+        msg.contains('Connection closed') ||
+        msg.contains('Connection aborted');
+  }
+
+  /// 判断字符串是否为带主机名的 http(s) 地址。
+  static bool isHttpUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
   }
 
   /// 发起 GET 请求，支持自定义 UA 和 Header。

@@ -10,6 +10,7 @@ import '../models/source.dart';
 import '../services/comic_service.dart';
 import '../services/history_service.dart';
 import '../services/settings_service.dart';
+import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
 
 /// 阅读器：竖向连续滚动（条漫）或横向翻页，均支持上一话 / 下一话切换。
@@ -218,6 +219,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  /// 章节目录弹窗：快速跳转到指定章节。
+  Future<void> _showChapterList() async {
+    final chapters = widget.chapters;
+    if (chapters == null || chapters.isEmpty) return;
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ChapterListSheet(
+        chapters: chapters,
+        currentIndex: _currentIndex,
+      ),
+    );
+    if (selected == null || !mounted || selected == _currentIndex) return;
+    setState(() => _currentIndex = selected);
+    _loadChapter();
+  }
+
   @override
   Widget build(BuildContext context) {
     final chapterCount = widget.chapters?.length ?? 0;
@@ -267,6 +286,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ],
             )
           : null,
+      bottomNavigationBar: _chromeVisible ? _buildBottomBar() : null,
       body: Stack(
         children: [
           _buildBody(continuous),
@@ -301,6 +321,51 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 底部操作栏：上一话 / 目录 / 下一话（与顶部菜单一同显示）。
+  Widget _buildBottomBar() {
+    final chapterCount = widget.chapters?.length ?? 0;
+    final style = TextButton.styleFrom(foregroundColor: Colors.white);
+    return Material(
+      color: Colors.black,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed:
+                      (!_isOffline && _currentIndex > 0) ? _prev : null,
+                  icon: const Icon(Icons.skip_previous, size: 20),
+                  label: const Text('上一话'),
+                  style: style,
+                ),
+              ),
+              if (chapterCount > 0 && !_isOffline)
+                TextButton.icon(
+                  onPressed: _showChapterList,
+                  icon: const Icon(Icons.menu_book_outlined, size: 20),
+                  label: Text('目录 ${_currentIndex + 1}/$chapterCount'),
+                  style: style,
+                ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: (!_isOffline && _currentIndex < chapterCount - 1)
+                      ? _next
+                      : null,
+                  icon: const Icon(Icons.skip_next, size: 20),
+                  label: const Text('下一话'),
+                  style: style,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -382,6 +447,8 @@ class _ReaderImage extends StatelessWidget {
       imageUrl: url,
       fit: BoxFit.fitWidth,
       width: double.infinity,
+      // 与封面一致：按图片域名补同源 Referer，绕过常见防盗链。
+      httpHeaders: ComicCover.imageHeaders(url),
       placeholder: (_, __) => const SizedBox(
         height: 320,
         child: Center(child: CircularProgressIndicator()),
@@ -390,6 +457,52 @@ class _ReaderImage extends StatelessWidget {
         height: 320,
         child: Center(
           child: Icon(Icons.broken_image_outlined, color: Colors.white38, size: 40),
+        ),
+      ),
+    );
+  }
+}
+
+/// 章节目录弹窗：列出全部章节，点击跳转。
+class _ChapterListSheet extends StatelessWidget {
+  final List<Chapter> chapters;
+  final int currentIndex;
+
+  const _ChapterListSheet({
+    required this.chapters,
+    required this.currentIndex,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: ListView.builder(
+          itemCount: chapters.length,
+          itemBuilder: (_, i) {
+            final active = i == currentIndex;
+            return ListTile(
+              selected: active,
+              leading: Text(
+                '${i + 1}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: active ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+              ),
+              title: Text(
+                chapters[i].name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: active
+                  ? Icon(Icons.play_arrow, color: scheme.primary, size: 20)
+                  : null,
+              onTap: () => Navigator.pop(context, i),
+            );
+          },
         ),
       ),
     );
