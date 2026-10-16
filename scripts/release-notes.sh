@@ -13,7 +13,6 @@ set -euo pipefail
 
 APP="ComicRealm"
 PROJECT="漫境 ComicRealm"
-TAGLINE="跨平台开源漫画阅读器 · 兼容 legado / 异次元 图源"
 REPO="${GITHUB_REPOSITORY:?需要 GITHUB_REPOSITORY 环境变量}"
 TAG="${1:?用法: release-notes.sh <tag>}"
 VERSION="${TAG#v}"
@@ -81,8 +80,6 @@ if [ -n "$subtitle" ]; then
 else
   echo "## ${PROJECT} ${TAG}"
 fi
-echo
-echo "> ${TAGLINE}"
 echo
 printf '%s\n' "$section"
 echo

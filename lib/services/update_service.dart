@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/github_mirror.dart';
 import '../core/updater.dart';
 
 /// 更新流程所处的阶段
@@ -66,6 +67,11 @@ class UpdateService extends ChangeNotifier {
   String? _filePath;
   DateTime? _lastCheckedAt;
 
+  /// 下载候选地址（直连 + 镜像），失败时按顺序回退。
+  List<String> _downloadCandidates = [];
+  int _candidateIndex = 0;
+  bool _switchingMirror = false;
+
   StreamSubscription<TaskUpdate>? _sub;
   bool _disposed = false;
 
@@ -79,6 +85,20 @@ class UpdateService extends ChangeNotifier {
   String? get error => _error;
   String? get filePath => _filePath;
   DateTime? get lastCheckedAt => _lastCheckedAt;
+
+  /// 当前所用下载地址是否为镜像（非 GitHub 直链）时返回镜像名，否则 null。
+  String? get mirrorName {
+    if (_downloadCandidates.isEmpty ||
+        _candidateIndex < 0 ||
+        _candidateIndex >= _downloadCandidates.length) {
+      return null;
+    }
+    final url = _downloadCandidates[_candidateIndex];
+    final target = _update?.downloadUrl;
+    if (target == null || url == target) return null;
+    final uri = Uri.tryParse(url);
+    return uri?.host;
+  }
 
   /// 检测到比当前更高的版本
   bool get hasUpdate => _update?.isNewer == true;
@@ -193,9 +213,31 @@ class UpdateService extends ChangeNotifier {
     _progress = 0;
     _receivedBytes = 0;
 
+    // 生成候选地址（直连 + 各镜像），并发测速后把最快的放到队首。
+    _downloadCandidates = GithubMirror.candidates(target.downloadUrl);
+    _candidateIndex = 0;
+    final fastest = await GithubMirror.pickFastest(_downloadCandidates);
+    if (fastest != null) {
+      final idx = _downloadCandidates.indexOf(fastest);
+      if (idx > 0) {
+        _downloadCandidates.insert(0, _downloadCandidates.removeAt(idx));
+      }
+    }
+
+    await _enqueueCandidate(target);
+  }
+
+  /// 用当前候选地址创建下载任务。
+  Future<void> _enqueueCandidate(AppUpdate target) async {
+    final url = _downloadCandidates.isNotEmpty
+        ? _downloadCandidates[_candidateIndex]
+        : target.downloadUrl;
+
+    _error = null;
+
     final task = DownloadTask(
       taskId: taskIdFor(target.version),
-      url: target.downloadUrl,
+      url: url,
       filename: target.fileName,
       directory: 'updates',
       baseDirectory: BaseDirectory.applicationSupport,
@@ -257,6 +299,8 @@ class UpdateService extends ChangeNotifier {
     _progress = 0;
     _receivedBytes = 0;
     _filePath = null;
+    _downloadCandidates = [];
+    _candidateIndex = 0;
     _notify();
   }
 
@@ -340,10 +384,33 @@ class UpdateService extends ChangeNotifier {
       }
 
       if (update is TaskStatusUpdate) {
+        // 镜像回退过程中主动取消旧任务，忽略其 canceled 事件，避免状态被覆盖。
+        if (update.status == TaskStatus.canceled && _switchingMirror) {
+          return;
+        }
         _applyStatus(update.status, update.exception);
         if (update.status == TaskStatus.complete) {
           _progress = 1;
           await _resolveFilePath();
+        } else if ((update.status == TaskStatus.failed ||
+                update.status == TaskStatus.notFound) &&
+            _candidateIndex + 1 < _downloadCandidates.length) {
+          // 当前镜像下载失败：自动切换到下一个候选地址重试。
+          final target = _update;
+          if (target != null) {
+            _candidateIndex++;
+            _progress = 0;
+            _receivedBytes = 0;
+            _switchingMirror = true;
+            try {
+              await FileDownloader()
+                  .cancelTasksWithIds([taskIdFor(target.version)]);
+              await _enqueueCandidate(target);
+            } finally {
+              _switchingMirror = false;
+            }
+            return;
+          }
         }
         _notify();
       }

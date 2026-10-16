@@ -58,6 +58,36 @@ void main() {
     });
   });
 
+  group('jsonMode：JSON 响应自动按 JSONPath 解析', () {
+    test('未带 $ 前缀的规则在 jsonMode 下解析为 JSONPath', () {
+      final r = RuleParser.parse('data.list[*].name', jsonMode: true);
+      expect(r.steps.first.jsonPath, 'data.list[*].name');
+    });
+
+    test('不带 $ 前缀的 JSONPath 也能求值', () {
+      final data = {
+        'data': {
+          'list': [
+            {'name': 'A'},
+            {'name': 'B'},
+          ]
+        }
+      };
+      expect(JsonPathEngine.query(data, 'data.list[*].name'), ['A', 'B']);
+    });
+
+    test('jsonMode 下仍尊重显式 CSS 前缀', () {
+      final r = RuleParser.parse('tag.li@text', jsonMode: true);
+      expect(r.steps.first.cssSelector, 'li');
+      expect(r.attr, 'text');
+    });
+
+    test('@json: 前缀被识别为 JSONPath', () {
+      final r = RuleParser.parse(r'@json:$.data.name');
+      expect(r.steps.first.jsonPath, r'$.data.name');
+    });
+  });
+
   group('buildUrl 占位符', () {
     test('{{page}} 替换', () {
       expect(SourceEngine.buildUrl('/list?page={{page}}', '', 2), '/list?page=2');

@@ -96,7 +96,7 @@ class SourceEngine {
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapterUrl);
 
-    final items = await _runRule(ruleStr, ctx, env);
+    final items = _flattenItems(await _runRule(ruleStr, ctx, env));
 
     var chapters = <Chapter>[];
     for (final item in items) {
@@ -131,44 +131,7 @@ class SourceEngine {
     final results = await _runRule(source.ruleBookContent, ctx, env);
     final urls = <String>[];
     for (final r in results) {
-      if (r is Element) {
-        // 规则未显式指定属性时，回退到常见图片属性（含各种懒加载写法）
-        final u = r.attributes['data-src'] ??
-            r.attributes['data-original'] ??
-            r.attributes['data-lazy-src'] ??
-            r.attributes['data-lazyload'] ??
-            r.attributes['data-echo'] ??
-            r.attributes['data-cfsrc'] ??
-            r.attributes['data-img'] ??
-            r.attributes['data-original-src'] ??
-            r.attributes['data-bg'] ??
-            r.attributes['data-url'] ??
-            r.attributes['src'] ??
-            '';
-        if (u.isNotEmpty) urls.add(_http.absoluteUrl(chapter.url, u));
-        continue;
-      }
-      if (r is Map) {
-        // JSON 源：从常见字段提取图片 URL
-        final u = (r['url'] ??
-                r['src'] ??
-                r['image'] ??
-                r['img'] ??
-                r['pic'] ??
-                r['cover'] ??
-                r['imageUrl'] ??
-                '')
-            .toString();
-        if (u.isNotEmpty) urls.add(_http.absoluteUrl(chapter.url, u));
-        continue;
-      }
-      final s = _stringify(r).trim();
-      if (s.isEmpty) continue;
-      for (final part in s.split(RegExp(r'[\n,]+'))) {
-        final p = part.trim();
-        if (p.isEmpty) continue;
-        urls.add(_http.absoluteUrl(chapter.url, p));
-      }
+      _collectContentUrls(r, chapter.url, urls);
     }
     // 去重且保持顺序
     final seen = <String>{};
@@ -187,22 +150,12 @@ class SourceEngine {
 
     final results = await _runRule(source.ruleBookContent, ctx, env);
     final paragraphs = <String>[];
+    final texts = <String>[];
     for (final r in results) {
-      String s;
-      if (r is Map) {
-        // JSON 源：从常见文本字段提取内容
-        s = (r['content'] ??
-                r['text'] ??
-                r['body'] ??
-                r['chapter'] ??
-                r['contentText'] ??
-                r['data'] ??
-                '')
-            .toString();
-      } else {
-        s = _stringify(r).trim();
-      }
-      s = s.trim();
+      _collectTexts(r, texts);
+    }
+    for (final s0 in texts) {
+      final s = s0.trim();
       if (s.isEmpty) continue;
       // 按换行拆分段落，去除空行
       for (final line in s.split(RegExp(r'\n+'))) {
@@ -272,7 +225,7 @@ class SourceEngine {
   }) async {
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: baseUrl, key: key, page: page);
-    final items = await _runRule(source.ruleSearchList, ctx, env);
+    final items = _flattenItems(await _runRule(source.ruleSearchList, ctx, env));
 
     final comics = <Comic>[];
     for (final item in items) {
@@ -309,8 +262,11 @@ class SourceEngine {
       throw Exception('该图源规则已加密（异次元私有格式），暂不支持');
     }
     final parts = _splitFallback(rule);
+    // 响应为 JSON（Map / List）时，未显式标注的选择器按 JSONPath 解析。
+    final jsonMode = ctx is Map || ctx is List;
     for (var i = 0; i < parts.length; i++) {
-      final result = await _runParsed(RuleParser.parse(parts[i]), ctx, env);
+      final result = await _runParsed(
+          RuleParser.parse(parts[i], jsonMode: jsonMode), ctx, env);
       if (result.isNotEmpty) return result;
     }
     return [];
@@ -538,6 +494,95 @@ class SourceEngine {
     return '';
   }
 
+  /// 展开列表型结果：JSONPath 命中数组时（如 `$.data.list`）会得到一个包裹
+  /// 着数组的列表，这里展平一层，使每个元素成为一个独立条目（对齐 legado）。
+  List<dynamic> _flattenItems(List<dynamic> items) {
+    final out = <dynamic>[];
+    for (final it in items) {
+      if (it is List) {
+        out.addAll(it);
+      } else {
+        out.add(it);
+      }
+    }
+    return out;
+  }
+
+  /// 从规则结果项中收集图片 URL（递归展开嵌套 List）。
+  void _collectContentUrls(dynamic r, String base, List<String> out) {
+    if (r == null) return;
+    if (r is List) {
+      for (final e in r) {
+        _collectContentUrls(e, base, out);
+      }
+      return;
+    }
+    if (r is Element) {
+      // 规则未显式指定属性时，回退到常见图片属性（含各种懒加载写法）
+      final u = r.attributes['data-src'] ??
+          r.attributes['data-original'] ??
+          r.attributes['data-lazy-src'] ??
+          r.attributes['data-lazyload'] ??
+          r.attributes['data-echo'] ??
+          r.attributes['data-cfsrc'] ??
+          r.attributes['data-img'] ??
+          r.attributes['data-original-src'] ??
+          r.attributes['data-bg'] ??
+          r.attributes['data-url'] ??
+          r.attributes['src'] ??
+          '';
+      if (u.isNotEmpty) out.add(_http.absoluteUrl(base, u));
+      return;
+    }
+    if (r is Map) {
+      // JSON 源：从常见字段提取图片 URL
+      final u = (r['url'] ??
+              r['src'] ??
+              r['image'] ??
+              r['img'] ??
+              r['pic'] ??
+              r['cover'] ??
+              r['imageUrl'] ??
+              '')
+          .toString();
+      if (u.isNotEmpty) out.add(_http.absoluteUrl(base, u));
+      return;
+    }
+    final s = _stringify(r).trim();
+    if (s.isEmpty) return;
+    for (final part in s.split(RegExp(r'[\n,]+'))) {
+      final p = part.trim();
+      if (p.isEmpty) continue;
+      out.add(_http.absoluteUrl(base, p));
+    }
+  }
+
+  /// 从规则结果项中收集文本（递归展开嵌套 List）。
+  void _collectTexts(dynamic r, List<String> out) {
+    if (r == null) return;
+    if (r is List) {
+      for (final e in r) {
+        _collectTexts(e, out);
+      }
+      return;
+    }
+    if (r is Map) {
+      // JSON 源：从常见文本字段提取内容
+      final s = (r['content'] ??
+              r['text'] ??
+              r['body'] ??
+              r['chapter'] ??
+              r['contentText'] ??
+              r['data'] ??
+              '')
+          .toString();
+      if (s.isNotEmpty) out.add(s);
+      return;
+    }
+    final s = _stringify(r).trim();
+    if (s.isNotEmpty) out.add(s);
+  }
+
   Future<String> _evalString(String rule, dynamic ctx, EvalEnv env) async {
     if (rule.trim().isEmpty) {
       // 无规则时，若 ctx 是元素则取文本
@@ -546,7 +591,7 @@ class SourceEngine {
       if (ctx is Map) return _stringify(ctx);
       return '';
     }
-    final list = await _runRule(rule, ctx, env);
+    final list = _flattenItems(await _runRule(rule, ctx, env));
     if (list.isEmpty) return '';
     return _stringify(list.first).trim();
   }

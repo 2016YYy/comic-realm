@@ -6,7 +6,31 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
-## [Unreleased]
+## [1.7.1] - 2026-10-16
+
+> GitHub 镜像加速更新、JSON 图源解析重构与加载性能优化
+
+### 🚀 更新与下载加速
+
+- 内置多个 **GitHub 高速镜像源**（ghfast.top / gh-proxy.com / ghproxy.net / moeyy.xyz / llkk.cc），修复应用更新卡、慢问题
+- 更新检查改为**并发请求**直连与各镜像，谁先返回用谁，避免逐个超时造成的长时间卡顿
+- 下载安装包前**并发测速**自动选用最快镜像，中途失败**自动切换到下一候选地址**
+- 更新弹窗在下载进度旁显示当前所用的**加速镜像域名**
+
+### 🧩 图源解析重构
+
+- JSONPath 引擎对齐 **legado / Jayway** 语义：递归 `..`、通配 `[*]`、下标（含负索引）、切片 `[start:end:step]`、过滤器（`==` `!=` `>` `>=` `<` `<=` `=~` 及 `&&` `||` `!`）、`length()/first()/last()`、`['a','b']` 多键
+- 响应为 JSON 时，**未带 `$` 前缀的规则也按 JSONPath 解析**，并识别 `@json:` / `jsonpath:` 前缀
+- JSONPath 命中数组时自动展平为条目：搜索列表、章节列表、图片列表、正文均支持
+
+### ⚡ 性能
+
+- 规则解析结果**缓存**，避免重复解析同一条规则
+- `@js:` 规则支持**表达式写法**（脚本无 `return` 时自动按表达式求值）
+
+### 🐛 问题修复
+
+- 修复 JSON 图源命中数组时列表 / 图片 / 正文解析异常的问题
 
 ### 🌐 图源与加载
 
@@ -251,7 +275,6 @@
 ### 🐛 问题修复
 
 - 统一发布签名：修正 `build.gradle.kts` 中 `signingConfigs` 与 `buildTypes` 的声明顺序，确保 release 构建始终使用 `release-keystore.jks` 签名
-- 内置图源「包子漫画」恢复可用：站点启用 Gatekeeper PoW 反爬后，通过**原生 HTTP 栈**自动求解挑战
 - 原生求解器同时返回 browser cookie 与 clearance cookie，保证重试请求能通过验证
 - 修复跨域 Gatekeeper：章节页 302 跳转后使用响应真实地址（`realUri`）求解挑战
 
@@ -337,7 +360,7 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.7.0...HEAD
+[1.7.1]: https://github.com/2016YYy/comic-realm/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/2016YYy/comic-realm/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/2016YYy/comic-realm/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/2016YYy/comic-realm/compare/v1.6.0...v1.6.1

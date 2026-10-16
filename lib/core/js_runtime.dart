@@ -49,7 +49,9 @@ class JsRuntime {
 
   /// 执行图源 JS 规则：注入 result/baseUrl/key/page 变量，返回 JSON 字符串。
   ///
-  /// 规则脚本被包裹在 IIFE 中，因此 `return` 语句与表达式结尾两种写法都可用。
+  /// 规则脚本被包裹在 IIFE 中，因此 `return` 语句与表达式结尾两种写法都可用：
+  /// 先按「带 return 的语句块」执行，若结果为 `undefined`（说明脚本本身是
+  /// 一个表达式而非语句块），再按「表达式求值」重试一次。
   Future<String> evalRule(
     String jsCode, {
     String result = '',
@@ -58,19 +60,32 @@ class JsRuntime {
     int page = 1,
   }) async {
     if (!_ready) await init();
-    final sb = StringBuffer();
-    sb.writeln('var result = ${_jsString(result)};');
-    sb.writeln('var baseUrl = ${_jsString(baseUrl)};');
-    sb.writeln('var key = ${_jsString(key)};');
-    sb.writeln('var page = $page;');
-    sb.writeln('JSON.stringify((function(){');
-    sb.writeln(jsCode);
-    sb.writeln('})());');
-    final res = _runtime!.evaluate(sb.toString());
-    if (res.isError) {
-      throw Exception('JS 规则执行失败：${res.stringResult}');
+    final vars = StringBuffer()
+      ..writeln('var result = ${_jsString(result)};')
+      ..writeln('var baseUrl = ${_jsString(baseUrl)};')
+      ..writeln('var key = ${_jsString(key)};')
+      ..writeln('var page = $page;');
+
+    // 形式一：语句块，脚本内部自行 return
+    final blockScript =
+        '${vars.toString()}JSON.stringify((function(){\n$jsCode\n})());';
+    final blockRes = _runtime!.evaluate(blockScript);
+    if (!blockRes.isError) {
+      final s = blockRes.stringResult;
+      if (s != 'undefined' && s.isNotEmpty) return s;
     }
-    return res.stringResult;
+
+    // 形式二：纯表达式（如 `result.split('|')[0]`）
+    final exprScript =
+        '${vars.toString()}JSON.stringify((function(){ return (\n$jsCode\n); })());';
+    final exprRes = _runtime!.evaluate(exprScript);
+    if (!exprRes.isError) return exprRes.stringResult;
+
+    // 两种形式都失败：抛出语句块形式的错误信息
+    if (blockRes.isError) {
+      throw Exception('JS 规则执行失败：${blockRes.stringResult}');
+    }
+    throw Exception('JS 规则执行失败：${exprRes.stringResult}');
   }
 
   /// 包装 JS 字符串字面量，处理引号、换行、Unicode 转义。

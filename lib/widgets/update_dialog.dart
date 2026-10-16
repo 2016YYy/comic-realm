@@ -106,6 +106,18 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
               ),
               const SizedBox(height: 8),
+              if (update.mirrorName != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '加速镜像：${update.mirrorName}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
             ],
 
             // Release Notes（可滚动）

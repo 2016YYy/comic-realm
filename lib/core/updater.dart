@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import 'github_mirror.dart';
 
 /// 一次可用的更新信息
 class AppUpdate {
@@ -70,46 +74,33 @@ class Updater {
   Updater({required this.owner, required this.repo, Dio? dio})
       : _dio = dio ??
             Dio(BaseOptions(
-              connectTimeout: const Duration(seconds: 12),
-              receiveTimeout: const Duration(seconds: 20),
+              connectTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 15),
             ));
 
   /// 查询最新 Release；失败（网络异常 / 非 200）返回 null。
   /// [includePrerelease] 为 true 时查询全部 Release（含预发布版），取最新。
+  ///
+  /// 检查也走 GitHub 镜像：直连 GitHub API 在国内经常超时，
+  /// 这里按「直连 → 各镜像」的顺序依次尝试，取第一个成功的响应。
   Future<AppUpdate?> checkUpdate({bool includePrerelease = false}) async {
     final info = await PackageInfo.fromPlatform();
     final current = info.version;
 
+    final apiUrl = includePrerelease
+        ? 'https://api.github.com/repos/$owner/$repo/releases?per_page=10'
+        : 'https://api.github.com/repos/$owner/$repo/releases/latest';
+
+    Map<String, dynamic>? data;
+    // 并发请求「直连 + 各镜像」，谁先返回有效结果就用谁，避免逐个超时造成的长时间卡顿。
+    data = await _firstRelease(
+      GithubMirror.candidates(apiUrl),
+      current,
+      includePrerelease,
+    );
+    if (data == null) return null;
+
     try {
-      final url = includePrerelease
-          ? 'https://api.github.com/repos/$owner/$repo/releases?per_page=10'
-          : 'https://api.github.com/repos/$owner/$repo/releases/latest';
-      final resp = await _dio.get(
-        url,
-        options: Options(headers: {
-          'Accept': 'application/vnd.github+json',
-          'User-Agent': 'ComicRealm/$current',
-        }),
-      );
-      if (resp.statusCode != 200) return null;
-
-      Map<String, dynamic> data;
-      if (includePrerelease) {
-        // 取列表中最新的一条（含预发布）
-        final list = resp.data;
-        if (list is! List || list.isEmpty) return null;
-        final first = list.firstWhere(
-          (e) => e is Map,
-          orElse: () => null,
-        );
-        if (first is! Map) return null;
-        data = Map<String, dynamic>.from(first);
-      } else {
-        final d = resp.data;
-        if (d is! Map) return null;
-        data = Map<String, dynamic>.from(d);
-      }
-
       final version = stripV((data['tag_name'] ?? '').toString());
       final body = (data['body'] ?? '').toString();
       final releasePageUrl = (data['html_url'] ?? '').toString();
@@ -146,6 +137,65 @@ class Updater {
         assets: assetNames,
         assetUrls: assetUrls,
       );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 并发请求多个候选地址，返回第一个有效结果；全部失败返回 null。
+  Future<Map<String, dynamic>?> _firstRelease(
+    List<String> urls,
+    String current,
+    bool includePrerelease,
+  ) async {
+    if (urls.isEmpty) return null;
+    if (urls.length == 1) {
+      return _fetchReleaseJson(urls.first, current, includePrerelease);
+    }
+    final completer = Completer<Map<String, dynamic>?>();
+    var pending = urls.length;
+    for (final u in urls) {
+      unawaited(_fetchReleaseJson(u, current, includePrerelease).then((d) {
+        if (d != null && !completer.isCompleted) {
+          completer.complete(d);
+        } else if (--pending == 0 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      }));
+    }
+    return completer.future;
+  }
+
+  /// 拉取并解析 Release JSON；失败返回 null。
+  Future<Map<String, dynamic>?> _fetchReleaseJson(
+    String url,
+    String current,
+    bool includePrerelease,
+  ) async {
+    try {
+      final resp = await _dio.get(
+        url,
+        options: Options(
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'ComicRealm/$current',
+          },
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+      if (resp.statusCode != 200) return null;
+
+      final d = resp.data;
+      if (includePrerelease) {
+        // 取列表中最新的一条（含预发布）
+        if (d is! List || d.isEmpty) return null;
+        final first = d.firstWhere((e) => e is Map, orElse: () => null);
+        if (first is! Map) return null;
+        return Map<String, dynamic>.from(first);
+      }
+      if (d is! Map) return null;
+      return Map<String, dynamic>.from(d);
     } catch (_) {
       return null;
     }

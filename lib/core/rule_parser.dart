@@ -21,7 +21,23 @@ class RuleParser {
     'data-cfsrc', 'data-img', 'data-original-src',
   };
 
-  static ParsedRule parse(String raw) {
+  /// 已解析规则的缓存（键含 jsonMode，避免重复解析同一条规则）。
+  static final Map<String, ParsedRule> _cache = {};
+  static const int _cacheLimit = 1024;
+
+  /// 解析规则。jsonMode 为 true 时表示当前响应是 JSON，未显式标注的选择器
+  /// 一律按 JSONPath 处理（对齐 legado「响应为 JSON 则默认走 JSON 规则」的行为）。
+  static ParsedRule parse(String raw, {bool jsonMode = false}) {
+    final key = '${jsonMode ? 1 : 0}\u0000$raw';
+    final hit = _cache[key];
+    if (hit != null) return hit;
+    final parsed = _parseUncached(raw, jsonMode: jsonMode);
+    if (_cache.length >= _cacheLimit) _cache.clear();
+    _cache[key] = parsed;
+    return parsed;
+  }
+
+  static ParsedRule _parseUncached(String raw, {bool jsonMode = false}) {
     var rule = raw.trim();
     final headers = <String, String>{};
 
@@ -77,7 +93,7 @@ class RuleParser {
         continue;
       }
 
-      final step = _buildStep(t);
+      final step = _buildStep(t, jsonMode: jsonMode);
       if (step != null) {
         steps.add(step);
         if (attr == null && step.xpathAttr != null) attr = step.xpathAttr;
@@ -150,7 +166,7 @@ class RuleParser {
     return true;
   }
 
-  static RuleStep? _buildStep(String token) {
+  static RuleStep? _buildStep(String token, {bool jsonMode = false}) {
     final lower = token.toLowerCase();
 
     if (lower.startsWith('css:')) {
@@ -159,11 +175,9 @@ class RuleParser {
       return RuleStep(cssSelector: css, index: index);
     }
 
-    if (lower.startsWith('json:')) {
-      return RuleStep(jsonPath: token.substring(5).trim());
-    }
-    if (lower.startsWith('jsonpath:')) {
-      return RuleStep(jsonPath: token.substring(9).trim());
+    if (lower.startsWith('json:') || lower.startsWith('jsonpath:')) {
+      // 兼容 @json: / @jsonpath: / json: 等形式
+      return RuleStep(jsonPath: token.substring(token.indexOf(':') + 1).trim());
     }
 
     if (token.startsWith(r'$')) {
@@ -172,6 +186,12 @@ class RuleParser {
 
     if (token.startsWith('//') || token.startsWith('/')) {
       return _translateXPath(token);
+    }
+
+    // JSON 响应下：未显式标注为 CSS 的选择器一律按 JSONPath 处理，
+    // 使图源无需写 `$` 前缀也能解析（如 `data.list[*].name`）。
+    if (jsonMode && !_isExplicitCssToken(lower, token)) {
+      return RuleStep(jsonPath: token);
     }
 
     String css;
@@ -189,6 +209,16 @@ class RuleParser {
 
     final (sel, index) = _stripIndex(css);
     return RuleStep(cssSelector: sel, index: index);
+  }
+
+  /// 是否为显式的 CSS 选择器写法（tag./class./id./text. / 以 `.` `#` 开头）。
+  static bool _isExplicitCssToken(String lower, String token) {
+    return lower.startsWith('tag.') ||
+        lower.startsWith('class.') ||
+        lower.startsWith('id.') ||
+        lower.startsWith('text.') ||
+        token.startsWith('.') ||
+        token.startsWith('#');
   }
 
   /// 拆出末尾的 `.N` 索引，例如 tag`h4.0` -> (`h4`, 0)
