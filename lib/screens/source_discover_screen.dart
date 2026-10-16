@@ -10,7 +10,11 @@ import 'comic_detail_screen.dart';
 /// 图源「分类 / 发现」页：展示该图源的分类，浏览、收藏、阅读漫画。
 class SourceDiscoverScreen extends StatefulWidget {
   final ComicSource source;
-  const SourceDiscoverScreen({super.key, required this.source});
+
+  /// 可选：进入时默认选中的分类标题（用于从详情页点击分类跳转）
+  final String? initialCategory;
+
+  const SourceDiscoverScreen({super.key, required this.source, this.initialCategory});
 
   @override
   State<SourceDiscoverScreen> createState() => _SourceDiscoverScreenState();
@@ -32,7 +36,16 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
     super.initState();
     _categories.addAll(widget.source.findCategories);
     if (_categories.isNotEmpty) {
-      _selected = _categories.first;
+      // 优先使用传入的初始分类，找不到则回退到第一个
+      final initTitle = widget.initialCategory;
+      if (initTitle != null) {
+        _selected = _categories.firstWhere(
+          (c) => c.title == initTitle,
+          orElse: () => _categories.first,
+        );
+      } else {
+        _selected = _categories.first;
+      }
       _load(reset: true);
     }
     // 滚动接近底部时自动加载更多
@@ -259,7 +272,7 @@ class _ComicTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final comicService = context.watch<ComicService>();
-    final favorited = comicService.isFavorite(comic.noteUrl);
+    final favorited = comicService.isFavorite(comic.noteUrl, sourceUrl: comic.sourceUrl);
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),

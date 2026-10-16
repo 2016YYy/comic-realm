@@ -37,6 +37,10 @@ class Comic extends HiveObject {
   @HiveField(10)
   DateTime? updateTime;
 
+  /// 所属自定义书架文件夹，空字符串表示「全部」（未归类）
+  @HiveField(11)
+  String folder;
+
   Comic({
     this.name = '',
     this.author = '',
@@ -49,6 +53,7 @@ class Comic extends HiveObject {
     this.sourceName = '',
     this.isFavorite = false,
     this.updateTime,
+    this.folder = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +67,7 @@ class Comic extends HiveObject {
         'sourceUrl': sourceUrl,
         'sourceName': sourceName,
         'isFavorite': isFavorite,
+        'folder': folder,
       };
 }
 

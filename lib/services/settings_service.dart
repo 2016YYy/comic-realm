@@ -43,6 +43,7 @@ class SettingsService extends ChangeNotifier {
   static const _kReaderContinuous = 'readerContinuous';
   static const _kReaderFontSize = 'readerFontSize';
   static const _kDisclaimerAccepted = 'disclaimerAccepted';
+  static const _kFolders = 'libraryFolders';
 
   Box get _box => AppDatabase.settings;
 
@@ -155,6 +156,38 @@ class SettingsService extends ChangeNotifier {
 
   set disclaimerAccepted(bool value) {
     _box.put(_kDisclaimerAccepted, value);
+    notifyListeners();
+  }
+
+  // ---------------- 书架文件夹 ----------------
+
+  /// 用户自建的书架文件夹名称列表
+  List<String> get folders {
+    final v = _box.get(_kFolders);
+    if (v is List) return List<String>.from(v.map((e) => e.toString()));
+    return [];
+  }
+
+  void addFolder(String name) {
+    final list = folders;
+    if (name.trim().isEmpty || list.contains(name)) return;
+    list.add(name);
+    _box.put(_kFolders, list);
+    notifyListeners();
+  }
+
+  void removeFolder(String name) {
+    final list = folders..remove(name);
+    _box.put(_kFolders, list);
+    notifyListeners();
+  }
+
+  void renameFolder(String oldName, String newName) {
+    final list = folders;
+    final i = list.indexOf(oldName);
+    if (i < 0 || newName.trim().isEmpty || list.contains(newName)) return;
+    list[i] = newName;
+    _box.put(_kFolders, list);
     notifyListeners();
   }
 }

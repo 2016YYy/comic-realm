@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/comic.dart';
@@ -59,7 +60,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String _text = '';
   bool _loading = true;
   String? _error;
-  bool _chromeVisible = true;
+  bool _chromeVisible = false; // 默认沉浸式，点击中间区域才显示菜单
 
   bool get _isNovel {
     if (widget.source != null) return widget.source!.isNovel;
@@ -74,14 +75,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    // 沉浸式：隐藏状态栏与导航栏
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     if (_isOffline) {
-      // 离线模式：直接使用传入内容
       _images = widget.offlineImages ?? [];
       _text = widget.offlineText ?? '';
       _loading = false;
     } else {
       _loadChapter();
     }
+  }
+
+  @override
+  void dispose() {
+    // 退出阅读器时恢复系统 UI
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: SystemUiOverlay.values,
+    );
+    super.dispose();
   }
 
   Future<void> _loadChapter() async {
@@ -142,6 +154,70 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
+  /// 阅读设置底部弹窗：阅读模式 + 字号（小说）
+  Future<void> _showReaderSettings() async {
+    final settings = context.read<SettingsService>();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('阅读设置',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              const Text('阅读模式', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              ListenableBuilder(
+                listenable: settings,
+                builder: (_, __) => SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('连续滚动'), icon: Icon(Icons.view_agenda_outlined)),
+                    ButtonSegment(value: false, label: Text('横向翻页'), icon: Icon(Icons.swipe_outlined)),
+                  ],
+                  selected: {settings.readerContinuous},
+                  onSelectionChanged: (v) => settings.readerContinuous = v.first,
+                ),
+              ),
+              if (_isNovel) ...[
+                const SizedBox(height: 20),
+                ListenableBuilder(
+                  listenable: settings,
+                  builder: (_, __) => Row(
+                    children: [
+                      const Icon(Icons.text_fields, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Slider(
+                          min: 12,
+                          max: 28,
+                          divisions: 16,
+                          value: settings.readerFontSize,
+                          label: '${settings.readerFontSize.round()}',
+                          onChanged: (v) => settings.readerFontSize = v,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 32,
+                        child: Text('${settings.readerFontSize.round()}',
+                            textAlign: TextAlign.right),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chapterCount = widget.chapters?.length ?? 0;
@@ -183,12 +259,48 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     onPressed: _currentIndex < chapterCount - 1 ? _next : null,
                   ),
                 ],
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  tooltip: '阅读设置',
+                  onPressed: _showReaderSettings,
+                ),
               ],
             )
           : null,
-      body: GestureDetector(
-        onTap: () => setState(() => _chromeVisible = !_chromeVisible),
-        child: _buildBody(continuous),
+      body: Stack(
+        children: [
+          _buildBody(continuous),
+          // 点击分区：左侧上一话，中间切换菜单，右侧下一话
+          Positioned.fill(
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (!_isOffline && _currentIndex > 0) _prev();
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => setState(() => _chromeVisible = !_chromeVisible),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      final count = widget.chapters?.length ?? 0;
+                      if (!_isOffline && _currentIndex < count - 1) _next();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

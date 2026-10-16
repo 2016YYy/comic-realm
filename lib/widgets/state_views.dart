@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../services/error_report_service.dart';
 
 /// 加载中 / 空态 / 错误态三件套，统一各页面的占位观感。
 
@@ -133,12 +136,27 @@ class EmptyView extends StatelessWidget {
   }
 }
 
-class ErrorView extends StatelessWidget {
+class ErrorView extends StatefulWidget {
   final String message;
   final VoidCallback? onRetry;
   final Object? detail;
 
   const ErrorView({super.key, required this.message, this.onRetry, this.detail});
+
+  @override
+  State<ErrorView> createState() => _ErrorViewState();
+}
+
+class _ErrorViewState extends State<ErrorView> {
+  @override
+  void initState() {
+    super.initState();
+    // 记录错误到本地日志，便于排查
+    ErrorReportService.appendLog(
+      message: widget.message,
+      detail: widget.detail,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,11 +170,11 @@ class ErrorView extends StatelessWidget {
             Icon(Icons.cloud_off_outlined, size: 52, color: scheme.error),
             const SizedBox(height: 16),
             Text(
-              message,
+              widget.message,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: scheme.onSurface),
             ),
-            if (detail != null) ...[
+            if (widget.detail != null) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -165,7 +183,7 @@ class ErrorView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  detail.toString(),
+                  widget.detail.toString(),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -176,12 +194,46 @@ class ErrorView extends StatelessWidget {
                 ),
               ),
             ],
-            if (onRetry != null) ...[
+            if (widget.onRetry != null) ...[
               const SizedBox(height: 18),
               FilledButton.tonalIcon(
-                onPressed: onRetry,
+                onPressed: widget.onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重试'),
+              ),
+            ],
+            if (widget.detail != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(
+                        ClipboardData(
+                          text: ErrorReportService.copyText(
+                              widget.message, widget.detail),
+                        ),
+                      );
+                      if (mounted) {
+                        showToast(context, '错误信息已复制到剪贴板',
+                            icon: Icons.copy);
+                      }
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('复制错误信息'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => ErrorReportService.openFeedback(
+                      title: widget.message,
+                      message: widget.message,
+                      detail: widget.detail,
+                    ),
+                    icon: const Icon(Icons.bug_report_outlined, size: 18),
+                    label: const Text('反馈问题'),
+                  ),
+                ],
               ),
             ],
           ],

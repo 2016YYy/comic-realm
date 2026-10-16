@@ -203,7 +203,7 @@ class _SearchScreenState extends State<SearchScreen> {
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final comic = _results[index];
-        final isFav = context.watch<ComicService>().isFavorite(comic.noteUrl);
+        final isFav = context.watch<ComicService>().isFavorite(comic.noteUrl, sourceUrl: comic.sourceUrl);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: ComicCover(url: comic.coverUrl, width: 50, height: 70, radius: 6),

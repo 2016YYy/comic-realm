@@ -77,19 +77,63 @@ class ComicService extends ChangeNotifier {
     return engine.getContentText(source, chapter, comic);
   }
 
+  /// 收藏键：sourceUrl + '\u0000' + (noteUrl 为空时用 name 兜底)。
+  /// 之前用 noteUrl 当键，分类页漫画 noteUrl 常为空，导致所有漫画共用空键，
+  /// 收藏一个就会让整页爱心全亮。
+  static String favoriteKey(Comic comic) {
+    final id = comic.noteUrl.isNotEmpty ? comic.noteUrl : comic.name;
+    return '${comic.sourceUrl}\u0000$id';
+  }
+
+  /// 将旧版仅用 noteUrl 存的收藏迁移到复合键，保证升级后收藏不丢失。
+  static Future<void> migrateFavorites() async {
+    final box = AppDatabase.favorites;
+    final oldKeys = box.keys.whereType<String>().where((k) => !k.contains('\u0000')).toList();
+    for (final k in oldKeys) {
+      final comic = box.get(k);
+      if (comic == null) continue;
+      final newKey = favoriteKey(comic);
+      if (newKey != k) {
+        await box.put(newKey, comic);
+        await box.delete(k);
+      }
+    }
+  }
+
   /// 收藏
   Future<void> addFavorite(Comic comic) async {
     comic.isFavorite = true;
-    await AppDatabase.favorites.put(comic.noteUrl, comic);
+    await AppDatabase.favorites.put(favoriteKey(comic), comic);
     notifyListeners();
   }
 
   Future<void> removeFavorite(Comic comic) async {
-    await AppDatabase.favorites.delete(comic.noteUrl);
+    await AppDatabase.favorites.delete(favoriteKey(comic));
     notifyListeners();
   }
 
-  bool isFavorite(String noteUrl) => AppDatabase.favorites.containsKey(noteUrl);
+  /// 修改漫画所属的书架文件夹
+  Future<void> setComicFolder(Comic comic, String folder) async {
+    comic.folder = folder;
+    await AppDatabase.favorites.put(favoriteKey(comic), comic);
+    notifyListeners();
+  }
+
+  /// 将某个文件夹下的全部漫画移动到目标文件夹（删除/合并文件夹时使用）
+  Future<void> moveFolderContents(String fromFolder, String toFolder) async {
+    for (final c in favorites) {
+      if (c.folder == fromFolder) {
+        c.folder = toFolder;
+        await AppDatabase.favorites.put(favoriteKey(c), c);
+      }
+    }
+    notifyListeners();
+  }
+
+  bool isFavorite(String noteUrl, {String sourceUrl = ''}) {
+    // 兼容旧调用：只传 noteUrl 时回退到新逻辑需要同时传 sourceUrl
+    return AppDatabase.favorites.containsKey('$sourceUrl\u0000$noteUrl');
+  }
 
   /// 触发一次刷新（例如书库下拉刷新）
   void reload() => notifyListeners();

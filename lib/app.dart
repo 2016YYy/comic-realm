@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme.dart';
@@ -36,6 +37,19 @@ class ComicRealmApp extends StatelessWidget {
           return MaterialApp(
             title: '漫境 ComicRealm',
             debugShowCheckedModeBanner: false,
+            // 中文本地化：文本选择菜单（剪切/复制/粘贴/全选等）显示中文
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CN'),
+              Locale('zh', 'TW'),
+              Locale('zh', 'HK'),
+              Locale('en', 'US'),
+            ],
+            locale: const Locale('zh', 'CN'),
             themeMode: settings.themeMode,
             theme: AppTheme.theme(Brightness.light, settings.seedColor),
             darkTheme: AppTheme.theme(Brightness.dark, settings.seedColor),

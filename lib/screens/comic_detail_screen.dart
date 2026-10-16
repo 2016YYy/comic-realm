@@ -11,6 +11,7 @@ import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
+import 'source_discover_screen.dart';
 
 class ComicDetailScreen extends StatefulWidget {
   final Comic comic;
@@ -32,7 +33,7 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
   void initState() {
     super.initState();
     _comic = widget.comic;
-    _favorited = context.read<ComicService>().isFavorite(_comic.noteUrl);
+    _favorited = context.read<ComicService>().isFavorite(_comic.noteUrl, sourceUrl: _comic.sourceUrl);
     _source = _resolveSource();
     if (_source == null) {
       _loading = false;
@@ -227,14 +228,28 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
     );
   }
 
-  /// 可点击的标签/作者胶囊：点击后跳转到搜索页自动搜索该关键词
+  /// 可点击的标签/作者胶囊
+  /// - 分类：在当前图源内浏览该分类（不是搜索）
+  /// - 作者：跨已启用图源搜索该作者
   Widget _buildTagChip(String text, ColorScheme scheme, {bool isAuthor = false}) {
     return InkWell(
       onTap: () {
+        if (isAuthor) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SearchScreen(initialQuery: text)),
+          );
+          return;
+        }
+        final source = _source;
+        if (source == null) {
+          showToast(context, '未找到对应图源，无法浏览分类');
+          return;
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SearchScreen(initialQuery: text),
+            builder: (_) => SourceDiscoverScreen(source: source, initialCategory: text),
           ),
         );
       },

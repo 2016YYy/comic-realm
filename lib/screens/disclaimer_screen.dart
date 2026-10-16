@@ -140,7 +140,7 @@ class _DisclaimerScreenState extends State<DisclaimerScreen> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _exitApp,
-                        child: const Text('不同意并退出'),
+                        child: const Text('不同意'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -148,7 +148,7 @@ class _DisclaimerScreenState extends State<DisclaimerScreen> {
                       flex: 2,
                       child: FilledButton(
                         onPressed: _checked ? _accept : null,
-                        child: const Text('同意并进入'),
+                        child: const Text('我同意'),
                       ),
                     ),
                   ],
