@@ -112,9 +112,23 @@ class RuleParser {
     return (rule, headers);
   }
 
+  /// 已知属性名集合：用于区分「标签选择器」与「属性抽取」。
+  /// 例如 `li` 是标签选择器，`href` 是属性。
+  static const Set<String> _attrNames = {
+    'text', 'textnodes', 'owntext', 'html', 'innerhtml', 'outerhtml',
+    'href', 'src', 'class', 'id', 'title', 'alt', 'style', 'name',
+    'value', 'type', 'content', 'charset', 'rel', 'target', 'width',
+    'height', 'action', 'method', 'placeholder', 'checked', 'disabled',
+    'selected', 'readonly', 'download', 'poster', 'srcset',
+  };
+
+  /// 判断 token 是否为选择器（而非属性）。
+  /// 已知属性名或 `data-*` 开头视为属性，其余视为 CSS 选择器。
   static bool _looksLikeSelector(String t) {
-    final lower = t.toLowerCase();
-    return t.startsWith('//') ||
+    final lower = t.toLowerCase().trim();
+    if (lower.isEmpty) return false;
+    // 选择器前缀
+    if (t.startsWith('//') ||
         t.startsWith('/') ||
         t.startsWith(r'$') ||
         t.startsWith('.') ||
@@ -125,7 +139,15 @@ class RuleParser {
         lower.startsWith('text.') ||
         lower.startsWith('css:') ||
         lower.startsWith('json:') ||
-        lower.startsWith('jsonpath:');
+        lower.startsWith('jsonpath:')) {
+      return true;
+    }
+    // data-* 属性
+    if (lower.startsWith('data-')) return false;
+    // 已知属性名
+    if (_attrNames.contains(lower)) return false;
+    // 其余视为 CSS 选择器（含标签名如 li、div、a 等）
+    return true;
   }
 
   static RuleStep? _buildStep(String token) {

@@ -58,6 +58,9 @@ class JsonPathEngine {
 
         if (inner == '*') {
           current = _valuesOf(current);
+        } else if (inner.startsWith('?(') && inner.endsWith(')')) {
+          // 过滤表达式：[?(@.key)] 保留含指定键的元素
+          current = _filterByExpr(current, inner.substring(2, inner.length - 1));
         } else if (inner.startsWith('"') || inner.startsWith("'")) {
           current = _pluckKey(current, inner.substring(1, inner.length - 1));
         } else if (int.tryParse(inner) != null) {
@@ -116,6 +119,42 @@ class JsonPathEngine {
       }
     }
     return out;
+  }
+
+  /// 过滤表达式求值：支持 `@.key`（含该键）和 `@.key == 'value'`。
+  static List<dynamic> _filterByExpr(List<dynamic> nodes, String expr) {
+    // 先展平：将嵌套列表展开为元素列表（类似 [*] 的行为）
+    final flattened = <dynamic>[];
+    for (final n in nodes) {
+      if (n is List) {
+        flattened.addAll(n);
+      } else {
+        flattened.add(n);
+      }
+    }
+    final e = expr.trim();
+    // 匹配 @.key == 'value' 或 @.key=="value"
+    final eqM = RegExp(r"""^@\.([A-Za-z0-9_\-]+)\s*==\s*['"]([^'"]*)['"]$""").firstMatch(e);
+    if (eqM != null) {
+      final key = eqM.group(1)!;
+      final val = eqM.group(2)!;
+      return flattened.where((n) {
+        if (n is! Map) return false;
+        return n[key]?.toString() == val;
+      }).toList();
+    }
+    // 匹配 @.key（含该键且值非空）
+    final keyM = RegExp(r'^@\.([A-Za-z0-9_\-]+)$').firstMatch(e);
+    if (keyM != null) {
+      final key = keyM.group(1)!;
+      return flattened.where((n) {
+        if (n is! Map) return false;
+        final v = n[key];
+        return v != null && v.toString().isNotEmpty;
+      }).toList();
+    }
+    // 不支持的表达式，原样返回
+    return flattened;
   }
 
   static List<dynamic> _recursiveKey(List<dynamic> nodes, String key) {

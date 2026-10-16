@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-16
+
+### 修复
+
+- 修复标签选择器被误判为属性的问题：`id.xxx@li` 中 `li` 现在正确解析为 CSS 标签选择器（此前被当作属性名）
+- 新增规则 `||` 回退支持：`$.a.*||$.b.*` 依次尝试，返回首个非空结果（覆盖大量 JSON 图源）
+- 新增 JSONPath 过滤表达式支持：`[?(@.Title)]`、`[?(@.type == "comic")]`
+- 加密规则（异次元 `:_H006_` 前缀）和 legado Java 扩展脚本（`org.jsoup`/`java.fetch` 等）现在抛出友好中文提示，而非静默失败
+
 ## [1.5.0] - 2026-10-16
 
 ### 修复
@@ -180,7 +189,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/2016YYy/comic-realm/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...v1.3.0

@@ -94,8 +94,7 @@ class SourceEngine {
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapterUrl);
 
-    final parsed = RuleParser.parse(ruleStr);
-    final items = await _runParsed(parsed, ctx, env);
+    final items = await _runRule(ruleStr, ctx, env);
 
     var chapters = <Chapter>[];
     for (final item in items) {
@@ -116,14 +115,13 @@ class SourceEngine {
   /// 获取章节图片 URL 列表
   Future<List<String>> getContent(
       ComicSource source, Chapter chapter, Comic comic) async {
-    final parsed = RuleParser.parse(source.ruleBookContent);
-    final headers = parsed.headers;
+    final headers = RuleParser.splitHeader(source.ruleBookContent).$2;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapter.url);
 
-    final results = await _runParsed(parsed, ctx, env);
+    final results = await _runRule(source.ruleBookContent, ctx, env);
     final urls = <String>[];
     for (final r in results) {
       if (r is Element) {
@@ -159,14 +157,13 @@ class SourceEngine {
   /// 获取小说章节文本内容（用于文本源，区别于 [getContent] 的图片列表）。
   Future<String> getContentText(
       ComicSource source, Chapter chapter, Comic comic) async {
-    final parsed = RuleParser.parse(source.ruleBookContent);
-    final headers = parsed.headers;
+    final headers = RuleParser.splitHeader(source.ruleBookContent).$2;
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: chapter.url);
 
-    final results = await _runParsed(parsed, ctx, env);
+    final results = await _runRule(source.ruleBookContent, ctx, env);
     final paragraphs = <String>[];
     for (final r in results) {
       final s = _stringify(r).trim();
@@ -227,7 +224,7 @@ class SourceEngine {
   }) async {
     final ctx = _parseContext(html);
     final env = EvalEnv(raw: html, baseUrl: baseUrl, key: key, page: page);
-    final items = await _runParsed(RuleParser.parse(source.ruleSearchList), ctx, env);
+    final items = await _runRule(source.ruleSearchList, ctx, env);
 
     final comics = <Comic>[];
     for (final item in items) {
@@ -258,6 +255,72 @@ class SourceEngine {
 
   // -------------------- 规则执行 --------------------
 
+  /// 执行规则（支持 `||` 回退）：依次尝试各分支，返回第一个非空结果。
+  Future<List<dynamic>> _runRule(String rule, dynamic ctx, EvalEnv env) async {
+    if (rule.trim().startsWith(':_H006_')) {
+      throw Exception('该图源规则已加密（异次元私有格式），暂不支持');
+    }
+    final parts = _splitFallback(rule);
+    for (var i = 0; i < parts.length; i++) {
+      final result = await _runParsed(RuleParser.parse(parts[i]), ctx, env);
+      if (result.isNotEmpty) return result;
+    }
+    return [];
+  }
+
+  /// 按 `||` 切分规则（忽略括号 / 引号 / `@js:` 脚本内的 `||`）。
+  List<String> _splitFallback(String rule) {
+    if (!rule.contains('||')) return [rule];
+    final out = <String>[];
+    final buf = StringBuffer();
+    var depth = 0;
+    String? quote;
+    var inJs = false;
+    for (var i = 0; i < rule.length; i++) {
+      final c = rule[i];
+      if (inJs) {
+        buf.write(c);
+        continue;
+      }
+      if (quote != null) {
+        buf.write(c);
+        if (c == quote) quote = null;
+        continue;
+      }
+      if (c == '\'' || c == '"') {
+        quote = c;
+        buf.write(c);
+        continue;
+      }
+      if (c == '[' || c == '(' || c == '{') {
+        depth++;
+        buf.write(c);
+        continue;
+      }
+      if (c == ']' || c == ')' || c == '}') {
+        if (depth > 0) depth--;
+        buf.write(c);
+        continue;
+      }
+      // 检测 @js: 之后全部视为脚本
+      if (rule.startsWith('@js:', i)) {
+        inJs = true;
+        buf.write('@js:');
+        i += 3;
+        continue;
+      }
+      if (depth == 0 && rule.startsWith('||', i)) {
+        out.add(buf.toString().trim());
+        buf.clear();
+        i += 1;
+        continue;
+      }
+      buf.write(c);
+    }
+    out.add(buf.toString().trim());
+    return out.where((s) => s.isNotEmpty).toList();
+  }
+
   /// 执行规则并返回原始结果列表（Element / Map / String …）。
   Future<List<dynamic>> _runParsed(ParsedRule parsed, dynamic ctx, EvalEnv env) async {
     var current = <dynamic>[ctx];
@@ -278,6 +341,14 @@ class SourceEngine {
 
     final js = parsed.jsCode;
     if (js != null && js.trim().isNotEmpty) {
+      // 检测 legado Java 互操作（org.jsoup / java.fetch 等），纯 JS 引擎不支持
+      if (js.contains('org.jsoup') ||
+          js.contains('java.fetch') ||
+          js.contains('java.setContent') ||
+          js.contains('java.getStringList') ||
+          js.contains('Packages.')) {
+        throw Exception('该图源使用了 Java 扩展脚本（legado 私有），暂不支持');
+      }
       final arg = (parsed.steps.isEmpty && parsed.attr == null)
           ? env.raw
           : current.map(_stringify).join('\n');
@@ -410,7 +481,7 @@ class SourceEngine {
       if (ctx is Map) return _stringify(ctx);
       return '';
     }
-    final list = await _runParsed(RuleParser.parse(rule), ctx, env);
+    final list = await _runRule(rule, ctx, env);
     if (list.isEmpty) return '';
     return _stringify(list.first).trim();
   }
