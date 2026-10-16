@@ -3,6 +3,9 @@
 # 生成 GitHub Release 正文：版本说明取自 CHANGELOG.md，下载表格取自该 Release 的真实产物。
 # Release 尚未创建（例如刚打完标签、产物还没上传）时，下载表格回退到产物命名约定。
 #
+# 样式对齐 melodyflow：标题行 = 「应用名 vX.Y.Z - 一句话概括」，正文使用带表情的二级小标题。
+# CHANGELOG 中版本小节的首行若为 `> 一句话概括`，会被提取为副标题。
+#
 # 用法：scripts/release-notes.sh <tag>      # 正文写到 stdout
 # 依赖：gh（需 GH_TOKEN）、git 标签、仓库根目录下的 CHANGELOG.md
 
@@ -25,6 +28,22 @@ section=$(awk -v ver="$VERSION" '
 if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
   echo "CHANGELOG.md 中找不到 ${VERSION} 的小节" >&2
   exit 1
+fi
+
+# 提取可选副标题：小节第一条非空行若以 "> " 开头
+subtitle=$(printf '%s\n' "$section" | awk '
+  /^[[:space:]]*$/ { next }
+  /^> / { sub(/^> /, ""); print; exit }
+  { exit }
+')
+
+# 存在副标题时，从正文中剔除该行
+if [ -n "$subtitle" ]; then
+  section=$(printf '%s\n' "$section" | awk '
+    !skipped && /^[[:space:]]*$/ { next }
+    !skipped && /^> / { skipped = 1; next }
+    { skipped = 1; print }
+  ')
 fi
 
 # 产物文件名 -> 「平台|说明」
@@ -56,13 +75,18 @@ done < <(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
 # 该 Release 的真实产物；Release 不存在时为空
 assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)
 
-echo "## ${PROJECT} ${TAG}"
+# 标题行：应用名 + 版本（+ 副标题）
+if [ -n "$subtitle" ]; then
+  echo "## ${PROJECT} ${TAG} - ${subtitle}"
+else
+  echo "## ${PROJECT} ${TAG}"
+fi
 echo
 echo "> ${TAGLINE}"
 echo
 printf '%s\n' "$section"
 echo
-echo "### 下载"
+echo "### 📦 下载"
 echo
 echo "| 平台 | 安装包 | 说明 |"
 echo "| --- | --- | --- |"

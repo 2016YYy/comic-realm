@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme.dart';
+import 'screens/disclaimer_screen.dart';
 import 'screens/discover_screen.dart';
 import 'screens/downloads_screen.dart';
 import 'screens/library_screen.dart';
@@ -13,6 +14,7 @@ import 'services/history_service.dart';
 import 'services/settings_service.dart';
 import 'services/source_service.dart';
 import 'services/update_service.dart';
+import 'widgets/state_views.dart';
 import 'widgets/update_dialog.dart';
 
 class ComicRealmApp extends StatelessWidget {
@@ -37,7 +39,12 @@ class ComicRealmApp extends StatelessWidget {
             themeMode: settings.themeMode,
             theme: AppTheme.theme(Brightness.light, settings.seedColor),
             darkTheme: AppTheme.theme(Brightness.dark, settings.seedColor),
-            home: const MainShell(),
+            // 首次启动必须先同意免责声明，未同意前不进入主界面
+            home: settings.disclaimerAccepted
+                ? const MainShell()
+                : DisclaimerScreen(
+                    onAccepted: () {}, // 写入设置后由 Consumer 自动切换到主界面
+                  ),
           );
         },
       ),
@@ -103,7 +110,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
-  /// 启动后的静默检查：有新版本时直接弹出更新弹窗
+  /// 启动后的静默检查：有新版本直接弹窗；已是最新版本则吐司提示
   Future<void> _autoCheckUpdate() async {
     if (_autoCheckStarted || !mounted) return;
     _autoCheckStarted = true;
@@ -116,11 +123,20 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       skippedVersion: settings.skippedVersion,
       includePrerelease: settings.includePrerelease,
     );
-    if (!hasNew || !mounted) return;
+    if (!mounted) return;
 
-    if (!_updateDialogShown) {
-      _updateDialogShown = true;
-      showUpdateDialog(context).then((_) => _updateDialogShown = false);
+    if (hasNew) {
+      if (!_updateDialogShown) {
+        _updateDialogShown = true;
+        showUpdateDialog(context).then((_) => _updateDialogShown = false);
+      }
+    } else {
+      // 已是最新版本（或被忽略）：吐司轻提示
+      showToast(
+        context,
+        '当前已是最新版本',
+        icon: Icons.check_circle_outline,
+      );
     }
   }
 

@@ -42,6 +42,7 @@ class SettingsService extends ChangeNotifier {
   static const _kIncludePrerelease = 'includePrerelease';
   static const _kReaderContinuous = 'readerContinuous';
   static const _kReaderFontSize = 'readerFontSize';
+  static const _kDisclaimerAccepted = 'disclaimerAccepted';
 
   Box get _box => AppDatabase.settings;
 
@@ -143,6 +144,17 @@ class SettingsService extends ChangeNotifier {
 
   set includePrerelease(bool value) {
     _box.put(_kIncludePrerelease, value);
+    notifyListeners();
+  }
+
+  // ---------------- 免责声明 ----------------
+
+  /// 用户是否已同意免责声明（首次启动必须同意才能进入）
+  bool get disclaimerAccepted =>
+      _box.get(_kDisclaimerAccepted) as bool? ?? false;
+
+  set disclaimerAccepted(bool value) {
+    _box.put(_kDisclaimerAccepted, value);
     notifyListeners();
   }
 }
