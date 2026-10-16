@@ -13,7 +13,6 @@ import '../services/history_service.dart';
 import '../services/settings_service.dart';
 import '../services/source_service.dart';
 import 'about_screen.dart';
-import 'webview_login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -64,16 +63,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ---------- 图源 ----------
           const _SectionTitle('图源'),
-          ListTile(
-            leading: const Icon(Icons.web),
-            title: const Text('WebView 通过验证'),
-            subtitle: const Text('访问受 Cloudflare 保护的站点时使用'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WebViewLoginScreen()),
-            ),
-          ),
 
           // ---------- 数据 ----------
           const _SectionTitle('数据'),

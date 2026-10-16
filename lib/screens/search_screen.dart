@@ -9,7 +9,8 @@ import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final String? initialQuery;
+  const SearchScreen({super.key, this.initialQuery});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -22,6 +23,15 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _loading = false;
   bool _searched = false;
   String? _sourceFilter; // null = 全部图源
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _controller.text = widget.initialQuery!;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
+  }
 
   List<ComicSource> get _enabledSources =>
       AppDatabase.sources.values.where((s) => s.enable).toList()

@@ -99,7 +99,11 @@ class SourceEngine {
     var chapters = <Chapter>[];
     for (final item in items) {
       final name = await _evalString(source.ruleChapterName, item, env);
-      final rawUrl = await _evalString(source.ruleContentUrl, item, env);
+      var rawUrl = await _evalString(source.ruleContentUrl, item, env);
+      // ruleContentUrl 为空时，回退到元素的 href / Map 的 url 字段
+      if (rawUrl.trim().isEmpty) {
+        rawUrl = _extractUrlFromItem(item);
+      }
       if (rawUrl.trim().isEmpty) continue;
       // JSON 源可能返回相对地址，统一解析为绝对 URL
       final absUrl = _http.absoluteUrl(chapterUrl, rawUrl.trim());
@@ -141,6 +145,20 @@ class SourceEngine {
         if (u.isNotEmpty) urls.add(_http.absoluteUrl(chapter.url, u));
         continue;
       }
+      if (r is Map) {
+        // JSON 源：从常见字段提取图片 URL
+        final u = (r['url'] ??
+                r['src'] ??
+                r['image'] ??
+                r['img'] ??
+                r['pic'] ??
+                r['cover'] ??
+                r['imageUrl'] ??
+                '')
+            .toString();
+        if (u.isNotEmpty) urls.add(_http.absoluteUrl(chapter.url, u));
+        continue;
+      }
       final s = _stringify(r).trim();
       if (s.isEmpty) continue;
       for (final part in s.split(RegExp(r'[\n,]+'))) {
@@ -166,7 +184,21 @@ class SourceEngine {
     final results = await _runRule(source.ruleBookContent, ctx, env);
     final paragraphs = <String>[];
     for (final r in results) {
-      final s = _stringify(r).trim();
+      String s;
+      if (r is Map) {
+        // JSON 源：从常见文本字段提取内容
+        s = (r['content'] ??
+                r['text'] ??
+                r['body'] ??
+                r['chapter'] ??
+                r['contentText'] ??
+                r['data'] ??
+                '')
+            .toString();
+      } else {
+        s = _stringify(r).trim();
+      }
+      s = s.trim();
       if (s.isEmpty) continue;
       // 按换行拆分段落，去除空行
       for (final line in s.split(RegExp(r'\n+'))) {
@@ -471,6 +503,25 @@ class SourceEngine {
       return _http.absoluteUrl(env.baseUrl, val);
     }
     return val;
+  }
+
+  /// 从规则结果项中提取 URL（当 ruleContentUrl 为空时的回退）。
+  /// HTML 元素取 href；Map 取 url/link/href 字段。
+  String _extractUrlFromItem(dynamic item) {
+    if (item == null) return '';
+    if (item is Element) {
+      return item.attributes['href'] ??
+          item.attributes['data-href'] ??
+          item.attributes['data-url'] ??
+          '';
+    }
+    if (item is Map) {
+      return (item['url'] ?? item['link'] ?? item['href'] ?? item['chapterUrl'] ?? '')
+          .toString();
+    }
+    final s = item.toString().trim();
+    if (s.startsWith('http') || s.startsWith('/')) return s;
+    return '';
   }
 
   Future<String> _evalString(String rule, dynamic ctx, EvalEnv env) async {

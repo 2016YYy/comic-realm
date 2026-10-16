@@ -7,14 +7,13 @@ import 'screens/downloads_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sources_screen.dart';
-import 'screens/update_screen.dart';
 import 'services/comic_service.dart';
 import 'services/download_service.dart';
 import 'services/history_service.dart';
 import 'services/settings_service.dart';
 import 'services/source_service.dart';
 import 'services/update_service.dart';
-import 'widgets/state_views.dart';
+import 'widgets/update_dialog.dart';
 
 class ComicRealmApp extends StatelessWidget {
   const ComicRealmApp({super.key});
@@ -57,7 +56,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _index = 0;
   bool _autoCheckStarted = false;
-  bool _installDialogShown = false;
+  bool _updateDialogShown = false;
 
   static const _pages = <Widget>[
     LibraryScreen(),
@@ -83,56 +82,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// 监听更新下载状态：下载完成后自动弹出安装弹窗
+  /// 监听更新下载状态：下载完成（ready）时若弹窗已打开则自动刷新为安装态
   void _listenUpdatePhase() {
     final updateService = context.read<UpdateService>();
     updateService.addListener(() {
       if (!mounted) return;
-      // 下载完成（ready）且尚未弹窗 → 自动弹出安装确认
-      if (updateService.phase == UpdatePhase.ready && !_installDialogShown) {
-        _installDialogShown = true;
-        _showInstallDialog();
-      }
-      // 离开 ready 状态后重置标记，允许下次下载完成再次弹窗
-      if (updateService.phase != UpdatePhase.ready) {
-        _installDialogShown = false;
+      // 进入 ready 状态时若弹窗未显示，则自动弹出安装弹窗
+      if (updateService.phase == UpdatePhase.ready && !_updateDialogShown) {
+        _updateDialogShown = true;
+        showUpdateDialog(context).then((_) => _updateDialogShown = false);
       }
     });
-  }
-
-  void _showInstallDialog() {
-    final updateService = context.read<UpdateService>();
-    final version = updateService.update?.version ?? '';
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.check_circle_outline, size: 40),
-        title: const Text('更新包下载完成'),
-        content: Text('新版本 v$version 已下载完成，是否立即安装？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('稍后'),
-          ),
-          FilledButton.icon(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final result = await updateService.install();
-              if (!ctx.mounted) return;
-              showToast(
-                ctx,
-                result.message,
-                icon: result.ok ? Icons.check_circle_outline : Icons.error_outline,
-                isError: !result.ok,
-              );
-            },
-            icon: const Icon(Icons.install_desktop),
-            label: const Text('立即安装'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -143,7 +103,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
-  /// 启动后的静默检查：只在确实有新版本且未被忽略时提示
+  /// 启动后的静默检查：有新版本时直接弹出更新弹窗
   Future<void> _autoCheckUpdate() async {
     if (_autoCheckStarted || !mounted) return;
     _autoCheckStarted = true;
@@ -158,21 +118,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     );
     if (!hasNew || !mounted) return;
 
-    final version = updateService.update?.version ?? '';
-    showToast(
-      context,
-      '发现新版本 v$version',
-      icon: Icons.new_releases_outlined,
-      duration: const Duration(seconds: 6),
-    );
-    // 延迟后跳转到更新页
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UpdateScreen()),
-      );
-    });
+    if (!_updateDialogShown) {
+      _updateDialogShown = true;
+      showUpdateDialog(context).then((_) => _updateDialogShown = false);
+    }
   }
 
   @override

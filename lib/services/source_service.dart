@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../core/database.dart';
 import '../core/http_client.dart';
 import '../core/source_engine.dart';
@@ -114,6 +115,26 @@ class SourceService extends ChangeNotifier {
     // 2. 文本载荷（明文 JSON 或 Base64）
     final text = utf8.decode(bytes, allowMalformed: true);
     return importFromJson(text);
+  }
+
+  /// 导出图源为 JSON 字符串（支持单个或全部）。
+  String exportSourcesToJson(List<ComicSource> sources) {
+    final list = sources.map((s) => s.toJson()).toList();
+    return jsonEncode(list);
+  }
+
+  /// 导出图源到本地文件，返回文件路径。
+  Future<String> exportSourcesToFile(List<ComicSource> sources) async {
+    final json = exportSourcesToJson(sources);
+    final dir = await getApplicationDocumentsDirectory();
+    final now = DateTime.now();
+    final stamp = '${now.year}${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}'
+        '${now.minute.toString().padLeft(2, '0')}';
+    final file = io.File('${dir.path}/comic_realm_sources_$stamp.json');
+    await file.writeAsString(json);
+    return file.path;
   }
 
   /// 解码文本载荷，返回 JSON 文本；无法识别时返回 null。

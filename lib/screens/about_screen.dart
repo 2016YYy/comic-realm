@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/settings_service.dart';
 import '../services/update_service.dart';
 import '../widgets/state_views.dart';
-import 'update_screen.dart';
+import '../widgets/update_dialog.dart';
 
 /// 关于页：参考 CloudDrive 风格，包含系统信息、应用更新、外部链接。
 class AboutScreen extends StatefulWidget {
@@ -58,62 +58,10 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   void _showUpdateDialog() {
-    final updateService = context.read<UpdateService>();
-    final settings = context.read<SettingsService>();
-    final update = updateService.update;
-    if (update == null) return;
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.system_update_alt, size: 40),
-        title: const Text('有可用更新'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '发现新版本 v${update.version}。',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Text(
-                    update.releaseNotes.trim().isEmpty
-                        ? '本次更新暂无说明'
-                        : update.releaseNotes,
-                    style: const TextStyle(fontSize: 13, height: 1.6),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              settings.skippedVersion = update.version;
-              Navigator.pop(ctx);
-            },
-            child: const Text('跳过此版本'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const UpdateScreen()),
-              );
-            },
-            child: const Text('下载并安装'),
-          ),
-        ],
-      ),
+      builder: (_) => const UpdateDialog(),
     );
   }
 

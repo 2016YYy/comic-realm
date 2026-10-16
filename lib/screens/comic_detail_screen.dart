@@ -10,6 +10,7 @@ import '../services/source_service.dart';
 import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
 import 'reader_screen.dart';
+import 'search_screen.dart';
 
 class ComicDetailScreen extends StatefulWidget {
   final Comic comic;
@@ -130,9 +131,11 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
                 ),
               )
             else if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
-                child: LoadingView(label: '正在加载章节…'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: LoadingView(
+                  label: (_source?.isNovel ?? false) ? '正在加载书源…' : '正在加载章节…',
+                ),
               )
             else if (_error != null)
               ErrorView(message: '章节加载失败', detail: _error, onRetry: _load)
@@ -171,15 +174,33 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
                 ),
                 const SizedBox(height: 6),
                 if (_comic.author.isNotEmpty)
-                  Text(
-                    '作者：${_comic.author}',
-                    style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        '作者：',
+                        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                      ),
+                      ..._comic.author.split(RegExp(r'[,，/、\s]+')).where((a) => a.isNotEmpty).map(
+                            (a) => _buildTagChip(a, scheme, isAuthor: true),
+                          ),
+                    ],
                   ),
                 if (_comic.kind.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '类型：${_comic.kind}',
-                    style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        '分类：',
+                        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                      ),
+                      ..._comic.kind.split(RegExp(r'[,，/、\s]+')).where((k) => k.isNotEmpty).map(
+                            (k) => _buildTagChip(k, scheme),
+                          ),
+                    ],
                   ),
                 ],
                 if (_comic.sourceName.isNotEmpty) ...[
@@ -202,6 +223,35 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 可点击的标签/作者胶囊：点击后跳转到搜索页自动搜索该关键词
+  Widget _buildTagChip(String text, ColorScheme scheme, {bool isAuthor = false}) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SearchScreen(initialQuery: text),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: scheme.onPrimaryContainer,
+          ),
+        ),
       ),
     );
   }

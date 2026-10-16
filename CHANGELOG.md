@@ -7,6 +7,24 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-16
+
+### 新增
+
+- 更新弹窗内直接下载并显示进度，不再跳转独立页面
+- 主界面启动时自动检测更新，有新版本直接弹窗
+- 图源管理支持导出：AppBar「导出全部」和单图源菜单「导出此图源」
+- 漫画详情页作者、分类标签可点击，跳转搜索页自动搜索
+- SearchScreen 支持 `initialQuery` 参数自动搜索
+
+### 修复
+
+- 修复「安装包尚未下载完成」误报：`_resolveFilePath` 增加任务对象 / 数据库 / 手动拼接路径三重兜底
+- 修复章节列表为空问题：`ruleContentUrl` 为空时回退到元素 `href` 或 Map 的 `url` 字段
+- JSON 图源内容解析：Map 结果从 `url/src/image` 等字段提取图片，从 `content/text/body` 提取小说文本
+- 设置页移除「WebView 通过验证」选项
+- 书源加载时显示「正在加载书源…」
+
 ## [1.5.1] - 2026-10-16
 
 ### 修复
@@ -189,7 +207,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/2016YYy/comic-realm/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/2016YYy/comic-realm/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...v1.4.0

@@ -1,7 +1,7 @@
 name: comic_realm
 description: 漫境 ComicRealm - 支持多图源的开源漫画阅读器，支持 Android / iOS / Windows。
 publish_to: 'none'
-version: 1.5.1+12
+version: 1.6.0+13
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

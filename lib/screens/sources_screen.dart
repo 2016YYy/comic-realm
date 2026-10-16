@@ -38,6 +38,12 @@ class _SourcesScreenState extends State<SourcesScreen> {
               tooltip: '一键检测全部图源',
               onPressed: _detectingAll ? null : () => _detectAll(context),
             ),
+          if (sources.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: '导出全部图源',
+              onPressed: () => _exportSources(context, sources),
+            ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: '导入图源',
@@ -114,6 +120,16 @@ class _SourcesScreenState extends State<SourcesScreen> {
                             ),
                           ),
                           const PopupMenuItem(
+                            value: 'export',
+                            child: Row(
+                              children: [
+                                Icon(Icons.file_download_outlined, size: 20),
+                                SizedBox(width: 12),
+                                Text('导出此图源'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
                             value: 'delete',
                             child: Row(
                               children: [
@@ -143,8 +159,26 @@ class _SourcesScreenState extends State<SourcesScreen> {
       BuildContext context, String value, ComicSource source) {
     if (value == 'detect') {
       _detectOne(context, source);
+    } else if (value == 'export') {
+      _exportSources(context, [source]);
     } else if (value == 'delete') {
       _confirmDelete(context, source);
+    }
+  }
+
+  Future<void> _exportSources(BuildContext context, List<ComicSource> sources) async {
+    final service = context.read<SourceService>();
+    try {
+      final path = await service.exportSourcesToFile(sources);
+      if (!context.mounted) return;
+      showToast(
+        context,
+        '已导出 ${sources.length} 个图源：$path',
+        icon: Icons.check_circle_outline,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      showToast(context, '导出失败：$e', isError: true);
     }
   }
 

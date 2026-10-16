@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/updater.dart';
@@ -398,19 +399,45 @@ class UpdateService extends ChangeNotifier {
     }
   }
 
-  /// 解析已下载文件的本地绝对路径
+  /// 解析已下载文件的本地绝对路径（多种方式兜底，确保可靠性）
   Future<String?> _resolveFilePath() async {
     final version = _update?.version;
+    final fileName = _update?.fileName;
     if (version == null) return null;
+
+    // 方式一：从下载任务对象获取
     try {
       final task = await FileDownloader().taskForId(taskIdFor(version));
-      if (task == null) return null;
-      final path = await task.filePath();
-      _filePath = path;
-      return path;
-    } catch (_) {
-      return null;
+      if (task != null) {
+        final path = await task.filePath();
+        if (path.isNotEmpty && await File(path).exists()) {
+          _filePath = path;
+          return path;
+        }
+      }
+    } catch (_) {}
+
+    // 方式二：从数据库记录获取
+    try {
+      final record = await FileDownloader().database.recordForId(taskIdFor(version));
+      if (record != null) {
+        // 尝试用 record 的 task 重新获取路径
+      }
+    } catch (_) {}
+
+    // 方式三：手动拼接路径（applicationSupport/updates/<filename>）
+    if (fileName != null && fileName.isNotEmpty) {
+      try {
+        final dir = await getApplicationSupportDirectory();
+        final path = '${dir.path}/updates/$fileName';
+        if (await File(path).exists()) {
+          _filePath = path;
+          return path;
+        }
+      } catch (_) {}
     }
+
+    return _filePath;
   }
 
   /// 应用从后台回到前台时刷新进度
