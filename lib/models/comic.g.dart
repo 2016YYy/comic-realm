@@ -29,13 +29,14 @@ class ComicAdapter extends TypeAdapter<Comic> {
       isFavorite: fields[9] as bool,
       updateTime: fields[10] as DateTime?,
       folder: fields[11] as String? ?? '',
+      status: fields[12] as int? ?? 0,
     );
   }
 
   @override
   void write(BinaryWriter writer, Comic obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class ComicAdapter extends TypeAdapter<Comic> {
       ..writeByte(10)
       ..write(obj.updateTime)
       ..writeByte(11)
-      ..write(obj.folder);
+      ..write(obj.folder)
+      ..writeByte(12)
+      ..write(obj.status);
   }
 
   @override

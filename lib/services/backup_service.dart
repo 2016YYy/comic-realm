@@ -112,6 +112,7 @@ class BackupService {
           sourceUrl: (map['sourceUrl'] ?? '').toString(),
           sourceName: (map['sourceName'] ?? '').toString(),
           isFavorite: true,
+          status: map['status'] is int ? map['status'] as int : int.tryParse((map['status'] ?? '0').toString()) ?? 0,
         );
         if (comic.noteUrl.isEmpty) continue;
         await AppDatabase.favorites.put(comic.noteUrl, comic);

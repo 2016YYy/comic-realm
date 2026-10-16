@@ -6,6 +6,35 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
+## [1.7.2] - 2026-10-17
+
+> 图源兼容性修复：相对地址兜底、URL 表达式求值、`{if}` 条件块与 org.jsoup 扩展脚本支持
+
+### 🐛 链接地址无效（缺少主机名）
+
+- 搜索 / 分类 / 详情 / 章节列表请求地址为**相对路径或为空**时，统一以**图源首页（bookSourceUrl）兜底解析**为绝对地址，不再直接抛出「缺少主机名」
+- 分类页（发现页）漫画列表可正常加载，修复「该分类暂无漫画」问题
+
+### ⚙️ URL 表达式求值
+
+- 请求 URL 支持 `{{...}}` 内的 **JavaScript 表达式**（如 `{{15*(1-1)}}`），通过 JS 引擎求值后再发起请求，修复「无效的请求地址：/getUpdate?page={{15*(1-1)}}」
+
+### 🧩 文本规则条件块
+
+- 支持 legado 文本规则语法：`{if:[comic:status]==1}连载中{else}已完结{/if}`
+- 支持 `[comic:字段]` / `[book:字段]` 变量替换（name/author/kind/status/cover/introduce 等）
+- 新增 `Comic.status` 连载状态字段（0=未知、1=连载中、2=已完结），详情页根据分类/简介文本自动推断
+
+### 🔧 Java 扩展脚本支持
+
+- 内置 **org.jsoup 兼容层**：`Jsoup.connect(url).get().select(css).text()/html()/attr()`，含纯 JS 实现的 HTML 解析器与 CSS 选择器（支持 tag / class / id / 属性 / 后代 / 子代 / 兄弟 / `:nth-child` / `:eq` / `:first` / `:last` 等）
+- 新增 `java.md5()` 哈希函数（RFC 1321）
+- 移除对 `org.jsoup` 脚本的硬拦截，图源的 Java 扩展脚本可直接执行
+
+### 📦 其他
+
+- 备份恢复支持 `status` 字段
+
 ## [1.7.1] - 2026-10-16
 
 > GitHub 镜像加速更新、JSON 图源解析重构与加载性能优化
@@ -360,6 +389,7 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
+[1.7.2]: https://github.com/2016YYy/comic-realm/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/2016YYy/comic-realm/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/2016YYy/comic-realm/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/2016YYy/comic-realm/compare/v1.6.1...v1.6.2

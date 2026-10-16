@@ -41,6 +41,10 @@ class Comic extends HiveObject {
   @HiveField(11)
   String folder;
 
+  /// 连载状态：0=未知 / 未设置，1=连载中，2=已完结（对齐 legado book.status）
+  @HiveField(12)
+  int status;
+
   Comic({
     this.name = '',
     this.author = '',
@@ -54,6 +58,7 @@ class Comic extends HiveObject {
     this.isFavorite = false,
     this.updateTime,
     this.folder = '',
+    this.status = 0,
   });
 
   /// 稳定的单本标识：优先用详情页地址，为空时回退书名
@@ -79,6 +84,7 @@ class Comic extends HiveObject {
         'sourceName': sourceName,
         'isFavorite': isFavorite,
         'folder': folder,
+        'status': status,
       };
 }
 

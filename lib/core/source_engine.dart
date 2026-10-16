@@ -14,12 +14,14 @@ class EvalEnv {
   final String baseUrl;
   final String key;
   final int page;
+  final Comic? comic;
 
   EvalEnv({
     required this.raw,
     required this.baseUrl,
     this.key = '',
     this.page = 1,
+    this.comic,
   });
 }
 
@@ -38,7 +40,9 @@ class SourceEngine {
       throw Exception('该图源未配置搜索规则');
     }
     final (_, headers) = RuleParser.splitHeader(source.ruleSearchUrl);
-    final url = buildUrl(source.ruleSearchUrl, keyword, page);
+    var url = await _buildUrl(source.ruleSearchUrl, keyword, page);
+    // 搜索地址为相对路径时，以图源首页兜底解析，避免「缺少主机名」。
+    url = _resolveAgainstSource(source, url);
     final html = await _http.getString(url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     return _parseComicList(source, html, url, key: keyword, page: page);
@@ -47,7 +51,9 @@ class SourceEngine {
   /// 分类 / 发现页漫画列表
   Future<List<Comic>> category(ComicSource source, String urlTemplate, {int page = 1}) async {
     final (_, headers) = RuleParser.splitHeader(urlTemplate);
-    final url = buildUrl(urlTemplate, '', page);
+    var url = await _buildUrl(urlTemplate, '', page);
+    // 发现页 / 分类地址通常是相对路径，统一以图源首页解析为绝对地址。
+    url = _resolveAgainstSource(source, url);
     final html = await _http.getString(url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     return _parseComicList(source, html, url, key: '', page: page);
@@ -55,12 +61,14 @@ class SourceEngine {
 
   /// 获取漫画详情
   Future<Comic> getDetail(ComicSource source, Comic comic) async {
+    // 详情页地址为空或相对时，以图源首页兜底解析，避免「缺少主机名」。
+    comic.noteUrl = _resolveAgainstSource(source, comic.noteUrl);
     _ensureHttp(comic.noteUrl, '漫画详情');
     final (_, headers) = RuleParser.splitHeader(comic.noteUrl);
     final html = await _http.getString(comic.noteUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
-    final env = EvalEnv(raw: html, baseUrl: comic.noteUrl);
+    final env = EvalEnv(raw: html, baseUrl: comic.noteUrl, comic: comic);
 
     comic.name = _ifEmpty(
         await _evalString(source.ruleBookName, ctx, env), comic.name);
@@ -73,6 +81,16 @@ class SourceEngine {
         await _evalString(source.ruleIntroduce, ctx, env), comic.introduce);
     comic.kind = _ifEmpty(
         await _evalString(source.ruleBookKind, ctx, env), comic.kind);
+    // 根据分类 / 简介文本推断连载状态（对齐 legado book.status）：
+    // 含「完结」→ 2，含「连载 / 更新中」→ 1，其余保持原值。
+    if (comic.status == 0) {
+      final hint = '${comic.kind} ${comic.introduce}';
+      if (hint.contains('完结') || hint.contains('完本') || hint.contains('已完结')) {
+        comic.status = 2;
+      } else if (hint.contains('连载') || hint.contains('更新中') || hint.contains('连载中')) {
+        comic.status = 1;
+      }
+    }
     return comic;
   }
 
@@ -87,6 +105,9 @@ class SourceEngine {
     }
     if (ruleStr.trim().isEmpty) return [];
 
+    // 详情页地址为空或相对时，以图源首页兜底解析。
+    comic.noteUrl = _resolveAgainstSource(source, comic.noteUrl);
+
     // 章节列表请求 URL：优先使用 ruleChapterUrl（支持 thisPage / @js），否则用详情页 URL
     final chapterUrl = await _resolveChapterUrl(source, comic.noteUrl);
     _ensureHttp(chapterUrl, '章节列表');
@@ -94,7 +115,7 @@ class SourceEngine {
     final html = await _http.getString(chapterUrl,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
-    final env = EvalEnv(raw: html, baseUrl: chapterUrl);
+    final env = EvalEnv(raw: html, baseUrl: chapterUrl, comic: comic);
 
     final items = _flattenItems(await _runRule(ruleStr, ctx, env));
 
@@ -126,7 +147,7 @@ class SourceEngine {
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
-    final env = EvalEnv(raw: html, baseUrl: chapter.url);
+    final env = EvalEnv(raw: html, baseUrl: chapter.url, comic: comic);
 
     final results = await _runRule(source.ruleBookContent, ctx, env);
     final urls = <String>[];
@@ -146,7 +167,7 @@ class SourceEngine {
     final html = await _http.getString(chapter.url,
         headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
     final ctx = _parseContext(html);
-    final env = EvalEnv(raw: html, baseUrl: chapter.url);
+    final env = EvalEnv(raw: html, baseUrl: chapter.url, comic: comic);
 
     final results = await _runRule(source.ruleBookContent, ctx, env);
     final paragraphs = <String>[];
@@ -200,6 +221,26 @@ class SourceEngine {
       return rule;
     }
     return _http.absoluteUrl(noteUrl, rule);
+  }
+
+  /// 将相对 / 空地址解析为绝对地址：优先用图源首页（bookSourceUrl）兜底，
+  /// 再用请求的 baseUrl 兜底。避免搜索列表未配置 noteUrl 时出现
+  /// 「缺少主机名」而整个章节列表加载失败。
+  String _resolveAgainstSource(ComicSource source, String url, {String? base}) {
+    final raw = (url ?? '').trim();
+    if (raw.isEmpty) {
+      return source.bookSourceUrl.trim().isNotEmpty ? source.bookSourceUrl.trim() : '';
+    }
+    if (HttpClient.isHttpUrl(raw)) return raw;
+    // 相对地址：优先用图源首页解析
+    if (source.bookSourceUrl.trim().isNotEmpty) {
+      final abs = _http.absoluteUrl(source.bookSourceUrl.trim(), raw);
+      if (HttpClient.isHttpUrl(abs)) return abs;
+    }
+    if (base != null && base.trim().isNotEmpty) {
+      return _http.absoluteUrl(base.trim(), raw);
+    }
+    return raw;
   }
 
   /// 校验请求地址是否可解析为带主机名的 http(s) 地址。
@@ -345,12 +386,8 @@ class SourceEngine {
 
     final js = parsed.jsCode;
     if (js != null && js.trim().isNotEmpty) {
-      // 仅 org.jsoup（需要真正的 DOM 解析）无法在当前 JS 引擎模拟；
-      // java.ajax / base64 / Packages.java 等常见 API 已由 JsRuntime 注入的
-      // shim 提供（见 js_runtime.dart），因此不再一概拒绝。
-      if (js.contains('org.jsoup') || js.contains('Packages.org')) {
-        throw Exception('该图源使用了 Java 扩展脚本（org.jsoup / legado 私有），暂不支持');
-      }
+      // org.jsoup / java.ajax / base64 / Packages.java 等常见 Java 扩展 API
+      // 均已由 JsRuntime 注入的 shim 提供（见 js_runtime.dart），这里直接执行。
       final arg = (parsed.steps.isEmpty && parsed.attr == null)
           ? env.raw
           : current.map(_stringify).join('\n');
@@ -584,16 +621,129 @@ class SourceEngine {
   }
 
   Future<String> _evalString(String rule, dynamic ctx, EvalEnv env) async {
-    if (rule.trim().isEmpty) {
+    final trimmed = rule.trim();
+    // 文本模板规则：含 {if: / {/if} / [comic: / [book: 时，直接做模板处理
+    // （不走选择器解析，避免把 {if:...} 当 CSS 选择器而返回空）。
+    if (trimmed.contains('{if:') ||
+        trimmed.contains('{/if}') ||
+        trimmed.contains('[comic:') ||
+        trimmed.contains('[book:')) {
+      return _applyTextTemplate(trimmed, env);
+    }
+    if (trimmed.isEmpty) {
       // 无规则时，若 ctx 是元素则取文本
       if (ctx is Element) return ctx.text.trim();
       if (ctx is String) return ctx;
       if (ctx is Map) return _stringify(ctx);
       return '';
     }
-    final list = _flattenItems(await _runRule(rule, ctx, env));
+    final list = _flattenItems(await _runRule(trimmed, ctx, env));
     if (list.isEmpty) return '';
-    return _stringify(list.first).trim();
+    final result = _stringify(list.first).trim();
+    // 结果文本中也可能含 {if} / [comic:] 模板片段
+    if (result.contains('{if:') ||
+        result.contains('{/if}') ||
+        result.contains('[comic:') ||
+        result.contains('[book:')) {
+      return _applyTextTemplate(result, env);
+    }
+    return result;
+  }
+
+  /// 处理文本模板：
+  ///   1. `[comic:field]` / `[book:field]` 替换为漫画对应字段值
+  ///   2. `{if:条件}正文{else}否则{/if}` 按 JS 条件求值选择分支
+  /// 对齐 legado 文本规则语法。
+  Future<String> _applyTextTemplate(String text, EvalEnv env) async {
+    var s = text;
+    // 1. 替换 [comic:field] / [book:field]
+    s = s.replaceAllMapped(RegExp(r'\[(?:comic|book):([^\]]+)\]'), (m) {
+      return _comicFieldValue(env.comic, m.group(1)!.trim());
+    });
+
+    // 2. 处理 {if:cond}...{else}...{/if}（支持嵌套：从内向外处理）
+    var changed = true;
+    while (changed) {
+      changed = false;
+      final m = RegExp(r'\{if:([^}]+)\}([\s\S]*?)\{/if\}').firstMatch(s);
+      if (m == null) break;
+      final cond = m.group(1)!.trim();
+      final body = m.group(2)!;
+      // body 中可能含 {else}
+      String ifBody = body;
+      String elseBody = '';
+      final elseIdx = _indexOfTopLevelElse(body);
+      if (elseIdx >= 0) {
+        ifBody = body.substring(0, elseIdx);
+        elseBody = body.substring(elseIdx + 6); // len('{else}') == 6
+      }
+      final ok = await _evalCondition(cond, env);
+      s = s.substring(0, m.start) + (ok ? ifBody : elseBody) + s.substring(m.end);
+      changed = true;
+    }
+    return s;
+  }
+
+  /// 取漫画字段值（用于 [comic:field] 替换）。
+  String _comicFieldValue(Comic? comic, String field) {
+    if (comic == null) return '';
+    switch (field.toLowerCase()) {
+      case 'name':
+      case 'title':
+        return comic.name;
+      case 'author':
+        return comic.author;
+      case 'cover':
+      case 'coverurl':
+        return comic.coverUrl;
+      case 'intro':
+      case 'introduce':
+        return comic.introduce;
+      case 'kind':
+      case 'category':
+        return comic.kind;
+      case 'lastchapter':
+        return comic.lastChapter;
+      case 'noteurl':
+      case 'url':
+        return comic.noteUrl;
+      case 'status':
+        return comic.status.toString();
+      case 'source':
+      case 'sourcename':
+        return comic.sourceName;
+      default:
+        return '';
+    }
+  }
+
+  /// 查找 body 中顶层 {else} 的下标（忽略嵌套 {if} 内部的 {else}）。
+  int _indexOfTopLevelElse(String body) {
+    var depth = 0;
+    for (var i = 0; i < body.length; i++) {
+      if (body.startsWith('{if:', i)) {
+        depth++;
+        i += 3;
+      } else if (body.startsWith('{/if}', i)) {
+        if (depth > 0) depth--;
+        i += 4;
+      } else if (depth == 0 && body.startsWith('{else}', i)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /// 求值 {if: 条件}：条件已替换过 [comic:field]，直接用 JS 引擎求值布尔。
+  Future<bool> _evalCondition(String cond, EvalEnv env) async {
+    if (cond.isEmpty) return false;
+    try {
+      final r = await _js.eval('!!($cond)');
+      return r == 'true';
+    } catch (_) {
+      // 非 JS 表达式（如纯文本），按「非空即真」处理
+      return cond.trim().isNotEmpty && cond != '0' && cond != 'false';
+    }
   }
 
   String _stringify(dynamic v) {
@@ -671,5 +821,36 @@ class SourceEngine {
     });
 
     return url.trim();
+  }
+
+  /// 异步构造请求 URL：在 [buildUrl] 的基础上，额外对 `{{...}}` 中的
+  /// JavaScript 表达式求值（legado 支持在 URL 中写任意 JS，如
+  /// `{{15*(1-1)}}`）。优先走内置简单占位符，剩余的 `{{...}}` 交由 JS 引擎。
+  Future<String> _buildUrl(String template, String keyword, int page) async {
+    var url = buildUrl(template, keyword, page);
+    // 剩余未被静态替换的 {{...}}：可能是 JS 表达式（如 {{15*(page-1)}}）
+    final jsExprRe = RegExp(r'\{\{([^{}]+)\}\}');
+    if (!jsExprRe.hasMatch(url)) return url;
+    try {
+      url = url.replaceAllMapped(jsExprRe, (m) {
+        return '__CR_EXPR_START__${m.group(1)}__CR_EXPR_END__';
+      });
+      final parts = url.split(RegExp(r'__CR_EXPR_START__|__CR_EXPR_END__'));
+      final out = StringBuffer();
+      for (var i = 0; i < parts.length; i++) {
+        if (i.isOdd) {
+          // 表达式片段：用 JS 求值
+          final expr = parts[i].replaceAll('page', page.toString());
+          final r = await _js.eval(expr);
+          out.write(r);
+        } else {
+          out.write(parts[i]);
+        }
+      }
+      return out.toString().trim();
+    } catch (_) {
+      // JS 求值失败时回退：去掉花括号保留原表达式文本
+      return url.replaceAllMapped(jsExprRe, (m) => m.group(1)!);
+    }
   }
 }
