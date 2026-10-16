@@ -11,7 +11,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/2016YYy/comic-realm/analyze.yml?label=构建状态&logo=github)](https://github.com/2016YYy/comic-realm/actions)
 [![License](https://img.shields.io/github/license/2016YYy/comic-realm?label=开源协议&color=3da639)](LICENSE)
 
-一个纯净、自由、可扩展的漫画阅读工具。兼容 **legado（开源阅读）/ 异次元** 的图源规则，
+一个纯净、自由、可扩展的漫画阅读工具。兼容第三方图源规则，
 支持自定义图源导入，让手机与桌面端都能顺畅阅读喜爱的漫画。
 
 [下载](#-下载) · [功能特性](#-功能特性) · [图源导入](#-图源导入) · [更新日志](CHANGELOG.md) · [常见问题](#-常见问题)
@@ -46,7 +46,7 @@
 **漫境 ComicRealm** 是一个基于 Flutter 开发的跨平台漫画阅读器。
 
 市面上多数阅读器要么图源封闭、要么平台单一。漫境的目标是做一个**开放、可扩展、全平台**的阅读工具：
-沿用 legado / 异次元 社区已经积累的图源规则，让你不必为换设备、换软件重新适应，一个规则即可解析全站漫画。
+沿用成熟已经积累的图源规则，让你不必为换设备、换软件重新适应，一个规则即可解析全站漫画。
 
 软件本身不含任何内容，所有漫画均来自你自行导入的图源；你可以自由增删图源、调整顺序、按需启用。
 
@@ -62,7 +62,7 @@
 - **离线下载** —— 一键下载章节到本地，断网也能看
 
 ### 🔌 图源
-- **兼容主流规则格式** —— 支持 legado（开源阅读）/ 异次元 图源 JSON 规则，含 `class./id./tag.` 前缀选择器、链式选择器、`@attr`、JSONPath、`@js` 脚本、`@Header` 请求头与 `##` 替换
+- **兼容主流规则格式** —— 支持开源或第三方图源 JSON 规则，含 `class./id./tag.` 前缀选择器、链式选择器、`@attr`、JSONPath、`@js` 脚本、`@Header` 请求头与 `##` 替换
 - **多种导入方式** —— 网络地址 / 本地文件 / 二维码，并自动识别 Base64、zlib、gzip 等压缩载荷
 - **图源管理** —— 启用 / 停用、删除
 - **Cloudflare 适配** —— 内置 WebView 验证入口，手动通过验证后自动同步 Cookie
@@ -125,8 +125,6 @@
 | 🌐 **网络地址** | 输入图源 JSON 的 URL 直接导入 |
 | 📁 **本地文件** | 选择本地 `.json` / `.txt` 图源文件 |
 | 📷 **二维码** | 扫描图源二维码导入 |
-
-图源规则格式参考：[异次元图源站](https://www.yckceo.com/yiciyuan/tuyuan/index.html)
 
 导入成功后：
 1. 在「图源」页点击任一图源，进入**发现页**查看它的分类，逐类浏览；
@@ -281,7 +279,4 @@ comic_realm/
 [MIT License](LICENSE) © ComicRealm Contributors
 
 ## 🙏 致谢
-
-- [legado（开源阅读）](https://github.com/gedoor/legado) —— 图源规则格式的参考与灵感来源
-- [异次元](https://www.yckceo.com/yiciyuan/tuyuan/index.html) —— 图源生态与规则示例
 - Flutter 及所有开源依赖的作者
