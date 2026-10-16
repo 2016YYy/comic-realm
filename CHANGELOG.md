@@ -7,6 +7,20 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-16
+
+### 修复
+
+- 吐司提示文字颜色显式使用主题 `onSurface`，完美适配深色/浅色模式
+- 修复下载完成后点击安装提示「安装包尚未下载完成」的问题：`install()` 内重新解析文件路径，监听器中 `await _resolveFilePath()` 确保路径就绪
+- 修复小说书源无分类问题：`exploreUrl` 解析兼容三种格式（JSON 数组、直接「标题::url」多行、未加引号键名的 JSON），有分类的书源从 277 提升至 563
+- 修复漫画源无法加载更多：`buildUrl` 新增 `{{page-1}}` 偏移和 legado `<0,150,300>` 偏移列表占位符支持
+
+### 新增
+
+- 图源发现页滚动接近底部时自动加载下一页（无限滚动）
+- 更新页「立即安装」增加确认弹窗
+
 ## [1.4.0] - 2026-10-16
 
 ### 重构
@@ -166,7 +180,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/2016YYy/comic-realm/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/2016YYy/comic-realm/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/2016YYy/comic-realm/compare/v1.1.1...v1.2.0

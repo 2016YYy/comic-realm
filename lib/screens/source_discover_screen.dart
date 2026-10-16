@@ -25,6 +25,7 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
   bool _loadingMore = false;
   bool _hasMore = true;
   String? _error;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -34,6 +35,19 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
       _selected = _categories.first;
       _load(reset: true);
     }
+    // 滚动接近底部时自动加载更多
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 300) {
+        _loadMore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _load({required bool reset}) async {
@@ -150,6 +164,7 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: GridView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.all(12),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,

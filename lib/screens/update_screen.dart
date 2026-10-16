@@ -441,6 +441,25 @@ class _ReadyCard extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    icon: const Icon(Icons.install_desktop, size: 40),
+                    title: const Text('确认安装'),
+                    content: const Text('即将调起系统安装界面完成版本更新，是否继续？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('取消'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('安装'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed != true) return;
                 final result = await service.install();
                 if (!context.mounted) return;
                 showToast(

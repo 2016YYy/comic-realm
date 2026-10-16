@@ -159,7 +159,7 @@ class ComicSource extends HiveObject {
   /// 解析规则字段：支持原生 Map 以及 legado 字符串字典字面量
   /// （如 `{'author': '...', 'bookList': '...'}`，使用单引号）。
   /// 解析发现页规则：兼容 app 原生「标题::url」多行格式与 legado `exploreUrl`
-  /// （JSON 数组字符串 `[{"title":"...","url":"..."}]`）。
+  /// （JSON 数组字符串 `[{"title":"...","url":"..."}]`，或直接「标题::url」多行）。
   static String _parseFindUrl(Map<String, dynamic> json) {
     final direct = _str(json['ruleFindUrl']);
     if (direct.isNotEmpty) return direct;
@@ -167,25 +167,53 @@ class ComicSource extends HiveObject {
     final explore = _str(json['exploreUrl']);
     if (explore.isEmpty) return '';
 
-    try {
-      // legado exploreUrl 可能使用单引号字典数组
-      final normalized = explore
-          .replaceAllMapped(
-              RegExp(r"'((?:\\.|[^'\\])*)'"), (m) => '"${m.group(1)!.replaceAll('"', '\\"')}"');
-      final list = jsonDecode(normalized);
-      if (list is List) {
-        final lines = <String>[];
-        for (final item in list) {
-          if (item is! Map) continue;
-          final title = _str(item['title']);
-          final url = _str(item['url']);
-          if (title.isNotEmpty) {
-            lines.add('$title::$url');
+    final trimmed = explore.trim();
+
+    // 格式一：legado JSON 数组 [{"title":"...","url":"..."}]
+    if (trimmed.startsWith('[')) {
+      // 优先尝试修复未加引号的键名后解析 JSON
+      try {
+        var normalized = explore.replaceAllMapped(
+            RegExp(r"'((?:\\.|[^'\\])*)'"),
+            (m) => '"${m.group(1)!.replaceAll('"', '\\"')}"');
+        // 修复未加引号的对象键名（如 layout_flexGrow:1 -> "layout_flexGrow":1）
+        normalized = normalized.replaceAllMapped(
+            RegExp(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)'),
+            (m) => '${m[1]}"${m[2]}"${m[3]}');
+        final list = jsonDecode(normalized);
+        if (list is List) {
+          final lines = <String>[];
+          for (final item in list) {
+            if (item is! Map) continue;
+            final title = _str(item['title']);
+            final url = _str(item['url']);
+            if (title.isNotEmpty) {
+              lines.add('$title::$url');
+            }
           }
+          if (lines.isNotEmpty) return lines.join('\n');
         }
-        return lines.join('\n');
+      } catch (_) {}
+
+      // JSON 解析失败时，用正则逐个提取 title / url
+      final lines = <String>[];
+      final titleMatches = RegExp(r"""title\s*:\s*['"]([^'"]+)['"]""").allMatches(explore);
+      final urlMatches = RegExp(r"""url\s*:\s*['"]([^'"]*)['"]""").allMatches(explore).toList();
+      var i = 0;
+      for (final tm in titleMatches) {
+        final title = tm.group(1)!;
+        final url = i < urlMatches.length ? urlMatches[i].group(1)! : '';
+        if (title.isNotEmpty) lines.add('$title::$url');
+        i++;
       }
-    } catch (_) {}
+      if (lines.isNotEmpty) return lines.join('\n');
+    }
+
+    // 格式二：直接「标题::url」多行（legado 部分书源使用此格式）
+    if (explore.contains('::')) {
+      return explore;
+    }
+
     return '';
   }
 

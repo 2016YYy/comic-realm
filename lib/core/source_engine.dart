@@ -459,17 +459,36 @@ class SourceEngine {
   String _ifEmpty(String value, String fallback) =>
       value.trim().isEmpty ? fallback : value.trim();
 
-  /// 构造请求 URL：替换 searchKey / searchPage 等占位符。
+  /// 构造请求 URL：替换 searchKey / searchPage / {{page}} / {{page-N}} / <offset> 等占位符。
   static String buildUrl(String template, String keyword, int page) {
     final (noHeader, _) = RuleParser.splitHeader(template);
     var url = noHeader.trim();
     final enc = Uri.encodeComponent(keyword);
+
+    // 关键词
     url = url
         .replaceAll('searchKey', enc)
         .replaceAll('{{key}}', enc)
-        .replaceAll('{{searchKey}}', enc)
+        .replaceAll('{{searchKey}}', enc);
+
+    // 页码：{{page}}、searchPage
+    url = url
         .replaceAll('searchPage', page.toString())
         .replaceAll('{{page}}', page.toString());
+
+    // 页码偏移：{{page-1}}、{{page+1}} 等
+    url = url.replaceAllMapped(RegExp(r'\{\{page([+-]\d+)\}\}'), (m) {
+      final offset = int.tryParse(m.group(1)!) ?? 0;
+      return (page + offset).toString();
+    });
+
+    // legado 偏移列表：<0,150,300> → 第 page 项（page 从 1 开始，取第 page-1 个）
+    url = url.replaceAllMapped(RegExp(r'<([^>]+)>'), (m) {
+      final parts = m.group(1)!.split(',').map((e) => e.trim()).toList();
+      final idx = (page - 1).clamp(0, parts.length - 1);
+      return parts[idx];
+    });
+
     return url.trim();
   }
 }

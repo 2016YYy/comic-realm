@@ -262,9 +262,13 @@ class UpdateService extends ChangeNotifier {
   // ---------------- 安装 ----------------
 
   Future<InstallResult> install() async {
+    // 若文件路径尚未解析（下载刚完成时可能存在时序问题），重新解析一次
+    if (_filePath == null || _filePath!.isEmpty) {
+      await _resolveFilePath();
+    }
     final path = _filePath;
     if (path == null || path.isEmpty) {
-      return const InstallResult(false, '安装包尚未下载完成');
+      return const InstallResult(false, '安装包尚未下载完成，请稍后重试');
     }
     if (!await File(path).exists()) {
       _filePath = null;
@@ -312,7 +316,7 @@ class UpdateService extends ChangeNotifier {
 
   void _listen() {
     if (kIsWeb) return;
-    _sub = FileDownloader().updates.listen((update) {
+    _sub = FileDownloader().updates.listen((update) async {
       final version = _update?.version;
       if (version == null) return;
       if (update.task.taskId != taskIdFor(version)) return;
@@ -338,7 +342,7 @@ class UpdateService extends ChangeNotifier {
         _applyStatus(update.status, update.exception);
         if (update.status == TaskStatus.complete) {
           _progress = 1;
-          _resolveFilePath();
+          await _resolveFilePath();
         }
         _notify();
       }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 加载中 / 空态 / 错误态三件套，统一各页面的占位观感。
 
-/// 美化版吐司提示：带图标、圆角、主题配色，自动适配深色模式。
+/// 美化版吐司提示：带图标、圆角、主题配色，自动适配深色/浅色模式。
 void showToast(
   BuildContext context,
   String message, {
@@ -27,7 +27,11 @@ void showToast(
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSurface,
+                ),
               ),
             ),
           ],
