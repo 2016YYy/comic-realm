@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-16
+
+### 新增
+
+- 下载页已完成任务可直接点击离线观看（漫画本地图片 / 小说本地文本）
+- 图源分类浏览漫画卡片右下角加快捷加书架按钮（心形图标），长按也可切换
+- 二维码扫描页美化：正方形扫描框 + 四角 L 形青色标记 + 扫描线动画
+- 图源导出统一放到内置存储根目录的「漫境」中文文件夹
+- 更新弹窗按 CloudDrive 风格重设计（顶部居中图标、加粗大标题、底部文字按钮）
+- 下载中弹窗显示下载进度条 + 完成字节，带「隐藏」/「取消下载」按钮
+- 底部导航栏加强图标-文字整体选中态（半透明主色 indicator，始终显示 label）
+
 ## [1.6.0] - 2026-10-16
 
 ### 新增
@@ -207,7 +219,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
-[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/2016YYy/comic-realm/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/2016YYy/comic-realm/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/2016YYy/comic-realm/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/2016YYy/comic-realm/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/2016YYy/comic-realm/compare/v1.4.0...v1.5.0

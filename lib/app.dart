@@ -126,11 +126,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
+        backgroundColor: scheme.surface,
+        indicatorColor: scheme.primary.withValues(alpha: 0.18),
+        surfaceTintColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.video_library_outlined),

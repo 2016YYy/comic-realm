@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,18 +13,41 @@ import '../widgets/state_views.dart';
 
 /// 阅读器：竖向连续滚动（条漫）或横向翻页，均支持上一话 / 下一话切换。
 class ReaderScreen extends StatefulWidget {
-  final ComicSource source;
+  final ComicSource? source;
   final Comic comic;
-  final List<Chapter> chapters;
+  final List<Chapter>? chapters;
   final int initialIndex;
+
+  /// 离线模式：直接传入已下载的本地内容，不走 source engine。
+  final List<String>? offlineImages;
+  final String? offlineText;
 
   const ReaderScreen({
     super.key,
-    required this.source,
+    this.source,
     required this.comic,
-    required this.chapters,
-    required this.initialIndex,
+    this.chapters,
+    this.initialIndex = 0,
+    this.offlineImages,
+    this.offlineText,
   });
+
+  /// 离线模式快捷构造
+  factory ReaderScreen.offline({
+    required Comic comic,
+    List<String>? images,
+    String? text,
+    List<Chapter>? chapters,
+    int initialIndex = 0,
+  }) {
+    return ReaderScreen(
+      comic: comic,
+      chapters: chapters,
+      initialIndex: initialIndex,
+      offlineImages: images,
+      offlineText: text,
+    );
+  }
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -36,13 +61,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String? _error;
   bool _chromeVisible = true;
 
-  bool get _isNovel => widget.source.isNovel;
+  bool get _isNovel {
+    if (widget.source != null) return widget.source!.isNovel;
+    return widget.offlineText != null;
+  }
+
+  bool get _isOffline {
+    return widget.offlineImages != null || widget.offlineText != null;
+  }
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _loadChapter();
+    if (_isOffline) {
+      // 离线模式：直接使用传入内容
+      setState(() {
+        _images = widget.offlineImages ?? [];
+        _text = widget.offlineText ?? '';
+        _loading = false;
+      });
+    } else {
+      _loadChapter();
+    }
   }
 
   Future<void> _loadChapter() async {
@@ -101,7 +142,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chapter = widget.chapters[_currentIndex];
+    final chapterCount = widget.chapters?.length ?? 0;
+    final chapterName = widget.chapters != null && _currentIndex < chapterCount
+        ? widget.chapters![_currentIndex].name
+        : widget.comic.name;
     final continuous = context.watch<SettingsService>().readerContinuous;
 
     return Scaffold(
@@ -114,26 +158,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    chapter.name,
+                    chapterName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 14),
                   ),
-                  Text(
-                    '${_currentIndex + 1} / ${widget.chapters.length}',
-                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                  ),
+                  if (chapterCount > 0)
+                    Text(
+                      '${_currentIndex + 1} / $chapterCount${_isOffline ? ' · 离线' : ''}',
+                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                    ),
                 ],
               ),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.skip_previous),
-                  onPressed: _currentIndex > 0 ? _prev : null,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.skip_next),
-                  onPressed: _currentIndex < widget.chapters.length - 1 ? _next : null,
-                ),
+                if (!_isOffline && chapterCount > 0) ...[
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous),
+                    onPressed: _currentIndex > 0 ? _prev : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next),
+                    onPressed: _currentIndex < chapterCount - 1 ? _next : null,
+                  ),
+                ],
               ],
             )
           : null,
@@ -200,8 +247,23 @@ class _ReaderImage extends StatelessWidget {
 
   const _ReaderImage({required this.url});
 
+  bool get _isLocal => File(url).existsSync();
+
   @override
   Widget build(BuildContext context) {
+    if (_isLocal) {
+      return Image.file(
+        File(url),
+        fit: BoxFit.fitWidth,
+        width: double.infinity,
+        errorBuilder: (_, __, ___) => const SizedBox(
+          height: 320,
+          child: Center(
+            child: Icon(Icons.broken_image_outlined, color: Colors.white38, size: 40),
+          ),
+        ),
+      );
+    }
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.fitWidth,

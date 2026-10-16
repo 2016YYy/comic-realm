@@ -100,6 +100,34 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
             }
           },
         ),
+        // 半透明遮罩 + 正方形扫描框 overlay
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final scanSize = constraints.biggest.shortestSide * 0.55;
+            return Stack(
+              children: [
+                // 全屏半透明遮罩
+                Container(color: Colors.black54),
+                // 扫描框（四角标记）
+                Center(
+                  child: SizedBox(
+                    width: scanSize,
+                    height: scanSize,
+                    child: const _ScanCorners(),
+                  ),
+                ),
+                // 扫描线动画
+                Center(
+                  child: SizedBox(
+                    width: scanSize - 8,
+                    height: scanSize - 8,
+                    child: const _ScanLine(),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
         Positioned(
           bottom: 30,
           left: 0,
@@ -134,6 +162,160 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
       ],
     );
   }
+}
+
+/// 扫描框四角的 L 形标记
+class _ScanCorners extends StatelessWidget {
+  const _ScanCorners();
+
+  @override
+  Widget build(BuildContext context) {
+    const cornerLen = 28.0;
+    const cornerWidth = 3.5;
+    const color = Color(0xFF00E5FF);
+
+    return Stack(
+      children: [
+        _buildCorner(Alignment.topLeft, cornerLen, cornerWidth, color,
+            topLeft: true),
+        _buildCorner(Alignment.topRight, cornerLen, cornerWidth, color,
+            topRight: true),
+        _buildCorner(Alignment.bottomLeft, cornerLen, cornerWidth, color,
+            bottomLeft: true),
+        _buildCorner(Alignment.bottomRight, cornerLen, cornerWidth, color,
+            bottomRight: true),
+      ],
+    );
+  }
+
+  Widget _buildCorner(
+    Alignment pos, double len, double width, Color color, {
+    bool topLeft = false,
+    bool topRight = false,
+    bool bottomLeft = false,
+    bool bottomRight = false,
+  }) {
+    BorderRadius? radius;
+    if (topLeft) radius = const BorderRadius.only(topLeft: Radius.circular(12));
+    if (topRight) radius = const BorderRadius.only(topRight: Radius.circular(12));
+    if (bottomLeft) radius = const BorderRadius.only(bottomLeft: Radius.circular(12));
+    if (bottomRight) radius = const BorderRadius.only(bottomRight: Radius.circular(12));
+
+    return Align(
+      alignment: pos,
+      child: CustomPaint(
+        size: Size(len, len),
+        painter: _CornerPainter(color: color, strokeWidth: width, radius: radius),
+      ),
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final BorderRadius? radius;
+  _CornerPainter(
+      {required this.color, required this.strokeWidth, this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final r = strokeWidth / 2;
+    // 判断是哪个角
+    if (radius == null) return;
+    if (radius!.topLeft != Radius.zero) {
+      // 左上角
+      canvas.drawLine(Offset(r, r), Offset(size.width - r, r), paint);
+      canvas.drawLine(Offset(r, r), Offset(r, size.height - r), paint);
+    } else if (radius!.topRight != Radius.zero) {
+      // 右上角
+      canvas.drawLine(Offset(size.width - r, r), Offset(r, r), paint);
+      canvas.drawLine(Offset(size.width - r, r), Offset(size.width - r, size.height - r), paint);
+    } else if (radius!.bottomLeft != Radius.zero) {
+      // 左下角
+      canvas.drawLine(Offset(r, size.height - r), Offset(size.width - r, size.height - r), paint);
+      canvas.drawLine(Offset(r, size.height - r), Offset(r, r), paint);
+    } else {
+      // 右下角
+      canvas.drawLine(Offset(size.width - r, size.height - r), Offset(r, size.height - r), paint);
+      canvas.drawLine(Offset(size.width - r, size.height - r), Offset(size.width - r, r), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 扫描线动画（从上到下循环移动）
+class _ScanLine extends StatefulWidget {
+  const _ScanLine();
+
+  @override
+  State<_ScanLine> createState() => _ScanLineState();
+}
+
+class _ScanLineState extends State<_ScanLine>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+            vsync: this, duration: const Duration(milliseconds: 2400))
+        ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        return CustomPaint(
+          painter: _ScanLinePainter(progress: _ctrl.value),
+          child: Container(),
+        );
+      },
+    );
+  }
+}
+
+class _ScanLinePainter extends CustomPainter {
+  final double progress;
+  _ScanLinePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF00E5FF)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    final y = progress * size.height;
+    canvas.drawLine(Offset(4, y), Offset(size.width - 4, y), paint);
+    // 渐变光晕
+    final glow = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.3)
+      ..strokeWidth = 12
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawLine(Offset(4, y), Offset(size.width - 4, y), glow);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanLinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
 
   Future<void> _importFromUrl() async {
     final url = _urlController.text.trim();

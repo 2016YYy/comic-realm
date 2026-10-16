@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
+import '../models/comic.dart';
 import '../models/download.dart';
 import '../services/download_service.dart';
 import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
+import 'reader_screen.dart';
 
 /// 下载管理：查看章节下载进度、清理已下载内容。
 class DownloadsScreen extends StatelessWidget {
@@ -46,6 +50,7 @@ class _DownloadTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final status = task.statusEnum;
     final downloading = status == DownloadStatus.downloading;
+    final completed = status == DownloadStatus.completed;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -83,16 +88,85 @@ class _DownloadTile extends StatelessWidget {
                 _statusText(status, task),
                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
               ),
+              if (completed) ...[
+                const SizedBox(width: 6),
+                Icon(Icons.offline_bolt, size: 12, color: scheme.primary),
+              ],
             ],
           ),
         ],
       ),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        tooltip: '删除',
-        onPressed: () => _confirmDelete(context, task),
-      ),
+      trailing: completed
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.play_circle_outline),
+                  tooltip: '离线阅读',
+                  onPressed: () => _openOffline(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: '删除',
+                  onPressed: () => _confirmDelete(context, task),
+                ),
+              ],
+            )
+          : IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '删除',
+              onPressed: () => _confirmDelete(context, task),
+            ),
+      onTap: completed ? () => _openOffline(context) : null,
     );
+  }
+
+  Future<void> _openOffline(BuildContext context) async {
+    if (task.savePath.isEmpty) return;
+    final dir = Directory(task.savePath);
+    if (!await dir.exists()) {
+      showToast(context, '本地缓存已丢失，请重新下载', isError: true);
+      return;
+    }
+    final files = await dir.list().toList();
+    final isNovel = files.any((f) => f.path.endsWith('.txt'));
+
+    final comic = Comic(
+      name: task.comicName,
+      coverUrl: task.coverUrl,
+      noteUrl: task.chapterUrl,
+      sourceUrl: task.sourceUrl,
+      sourceName: task.sourceName,
+    );
+
+    if (isNovel) {
+      final textFile = files.firstWhere(
+        (f) => f.path.endsWith('.txt'),
+        orElse: () => File(''),
+      );
+      final text = textFile is File ? await textFile.readAsString() : '';
+      if (!context.mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReaderScreen.offline(comic: comic, text: text),
+        ),
+      );
+    } else {
+      files.sort((a, b) => a.path.compareTo(b.path));
+      final imagePaths = files.whereType<File>().map((f) => f.path).toList();
+      if (imagePaths.isEmpty && context.mounted) {
+        showToast(context, '本地缓存为空，请重新下载', isError: true);
+        return;
+      }
+      if (!context.mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReaderScreen.offline(comic: comic, images: imagePaths),
+        ),
+      );
+    }
   }
 
   IconData _statusIcon(DownloadStatus s) {

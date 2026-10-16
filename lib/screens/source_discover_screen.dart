@@ -258,6 +258,10 @@ class _ComicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final comicService = context.watch<ComicService>();
+    final favorited = comicService.isFavorite(comic.noteUrl);
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () {
@@ -266,16 +270,57 @@ class _ComicTile extends StatelessWidget {
           MaterialPageRoute(builder: (_) => ComicDetailScreen(comic: comic)),
         );
       },
+      onLongPress: () => _toggleFavorite(context, favorited),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: ComicCover(url: comic.coverUrl, width: double.infinity, radius: 8),
+            child: Stack(
+              children: [
+                ComicCover(url: comic.coverUrl, width: double.infinity, radius: 8),
+                // 加书架快捷按钮（右下角）
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: GestureDetector(
+                    onTap: () => _toggleFavorite(context, favorited),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        favorited ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: favorited ? Colors.redAccent : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
-          Text(comic.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+          Text(
+            comic.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _toggleFavorite(BuildContext context, bool favorited) async {
+    final service = context.read<ComicService>();
+    if (favorited) {
+      await service.removeFavorite(comic);
+      if (context.mounted) showToast(context, '已从书架移除');
+    } else {
+      await service.addFavorite(comic);
+      if (context.mounted) showToast(context, '已加入书架', icon: Icons.favorite);
+    }
   }
 }

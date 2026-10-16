@@ -124,15 +124,35 @@ class SourceService extends ChangeNotifier {
   }
 
   /// 导出图源到本地文件，返回文件路径。
+  /// 文件统一放在内置存储下的「漫境」中文文件夹。
   Future<String> exportSourcesToFile(List<ComicSource> sources) async {
     final json = exportSourcesToJson(sources);
-    final dir = await getApplicationDocumentsDirectory();
+    // 优先使用 Android 外置存储根目录的「漫境」文件夹，
+    // 方便用户用文件管理器直接访问。桌面平台 fallback 到 documents。
+    io.Directory base;
+    try {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        // ext 形如 /storage/emulated/0/Android/data/...
+        // 我们需要根目录 /storage/emulated/0/
+        final root = io.Directory(ext.path.split('Android')[0]);
+        base = io.Directory('${root.path}漫境');
+      } else {
+        base = await getApplicationDocumentsDirectory();
+      }
+    } catch (_) {
+      base = await getApplicationDocumentsDirectory();
+    }
+    if (!await base.exists()) {
+      await base.create(recursive: true);
+    }
+
     final now = DateTime.now();
     final stamp = '${now.year}${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}_'
         '${now.hour.toString().padLeft(2, '0')}'
         '${now.minute.toString().padLeft(2, '0')}';
-    final file = io.File('${dir.path}/comic_realm_sources_$stamp.json');
+    final file = io.File('${base.path}/图源_$stamp.json');
     await file.writeAsString(json);
     return file.path;
   }
