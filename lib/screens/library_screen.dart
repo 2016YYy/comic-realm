@@ -196,7 +196,7 @@ class _FolderBar extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => onSelected(value),
-        onLongPress: folder == null ? null : () => _folderMenu(context, folder!),
+        onLongPress: folder == null ? null : () => _folderMenu(context, folder),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
@@ -518,7 +518,7 @@ Future<void> _showActions(BuildContext context, Comic comic) async {
           ),
           const Divider(height: 1),
           ListTile(
-            leading: const Icon(Icons.folder_move_outlined),
+            leading: const Icon(Icons.drive_file_move_outline),
             title: const Text('移动到文件夹'),
             onTap: () => Navigator.pop(ctx, '__move__'),
           ),
