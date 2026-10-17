@@ -44,13 +44,13 @@ jobs:
           COMIC_REALM_KEY_ALIAS: ${{ env.COMIC_REALM_KEY_ALIAS }}
           COMIC_REALM_KEY_PASSWORD: ${{ env.COMIC_REALM_KEY_PASSWORD }}
         run: |
-          missing=()
-          [ -n "$COMICREALM_STORE_FILE" ]   || missing+=("COMICREALM_STORE_FILE")
-          [ -n "$COMICREALM_STORE_PASSWORD" ] || missing+=("COMICREALM_STORE_PASSWORD")
-          [ -n "$COMIC_REALM_KEY_ALIAS" ]   || missing+=("COMIC_REALM_KEY_ALIAS")
-          [ -n "$COMIC_REALM_KEY_PASSWORD" ] || missing+=("COMIC_REALM_KEY_PASSWORD")
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::缺少签名 Secret：${missing[*]}（Settings → Secrets and variables → Actions）"
+          missing=""
+          [ -n "$COMICREALM_STORE_FILE" ]    || missing="$missing COMICREALM_STORE_FILE"
+          [ -n "$COMICREALM_STORE_PASSWORD" ] || missing="$missing COMICREALM_STORE_PASSWORD"
+          [ -n "$COMIC_REALM_KEY_ALIAS" ]    || missing="$missing COMIC_REALM_KEY_ALIAS"
+          [ -n "$COMIC_REALM_KEY_PASSWORD" ] || missing="$missing COMIC_REALM_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少签名 Secret:$missing （Settings → Secrets and variables → Actions）"
             exit 1
           fi
           echo "签名四要素齐全"
