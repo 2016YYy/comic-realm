@@ -45,6 +45,19 @@ if [ -n "$subtitle" ]; then
   ')
 fi
 
+# 规整小节首尾空白：去掉开头空行与结尾多余空行，
+# 避免与下方固定的 echo 空行叠加成连续空行。
+section=$(printf '%s\n' "$section" | awk '
+  { lines[NR] = $0 }
+  END {
+    start = 1
+    while (start <= NR && lines[start] ~ /^[[:space:]]*$/) start++
+    end = NR
+    while (end >= start && lines[end] ~ /^[[:space:]]*$/) end--
+    for (i = start; i <= end; i++) print lines[i]
+  }
+')
+
 # 产物文件名 -> 「平台|说明」
 asset_info() {
   case "$1" in
@@ -53,7 +66,7 @@ asset_info() {
     *x86*)     echo 'Android|模拟器 / x86 设备' ;;
     *.ipa)     echo 'iOS|免签名包，需自签安装' ;;
     *windows*) echo 'Windows|解压即用' ;;
-    *.apk)     echo 'Android|' ;;
+    *.apk)     echo 'Android|未分架构通用包' ;;
     *)         echo '其他|' ;;
   esac
 }

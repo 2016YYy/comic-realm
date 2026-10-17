@@ -124,6 +124,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          # 统一 Release 名称格式：ComicRealm vX.Y.Z（与历史一致，避免出现裸标签名）
+          name: ComicRealm ${{ github.ref_name }}
           body_path: release_body.md
           generate_release_notes: false
           files: |

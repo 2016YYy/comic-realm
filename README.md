@@ -114,6 +114,44 @@
 
 > 版本号统一在 [`pubspec.yaml`](pubspec.yaml) 的 `version` 字段维护，Git 标签与之一致（如 `v1.0.2`）。
 
+### Release 说明规范
+
+每个 Release 由 [`scripts/release-notes.sh`](scripts/release-notes.sh) 自动生成，格式统一为：
+
+```
+## 漫境 ComicRealm v<版本> - <一句话概括>
+
+<CHANGELOG 中该版本小节的正文>
+
+### 📦 下载
+
+| 平台 | 安装包 | 说明 |
+|------|--------|------|
+| ...  | ...    | ...  |
+
+首次使用请在「图源」页导入图源；应用内「设置 → 检查更新」可一键升级。
+
+**完整更新日志**：v<上一版本>...v<版本>（compare 链接）
+```
+
+- Release 名称固定为 `ComicRealm v<版本>`，与标签保持一致
+- 副标题取自 `CHANGELOG.md` 该版本小节的首行 `> 一句话概括`
+- 下载表格由脚本按**真实上传的产物**生成，说明列不会留空
+
+### 发布签名
+
+Android 发布包统一使用仓库内 [`android/app/release-keystore.jks`](android/app/release-keystore.jks) 签名，证书指纹：
+
+| 项 | 值 |
+|----|-----|
+| Subject | `CN=ComicRealm, OU=Dev, O=ComicRealm, L=Shanghai, ST=Shanghai, C=CN` |
+| Key Alias | `comicrealm` |
+| SHA-1 | `3B:F2:48:07:EB:01:F0:EB:54:A1:5A:02:8C:63:2A:98:B0:E4:BB:DB` |
+| SHA-256 | `31:13:BE:CE:E0:2D:74:ED:04:78:F9:49:4D:7E:06:72:8B:EE:4E:20:0E:37:44:41:10:05:C1:DA:05:0D:66:A8` |
+
+> [!IMPORTANT]
+> **1.0.0 ~ 1.0.3** 的 APK 使用 debug 签名，与正式证书不同。从这些版本升级到 **1.0.4 及以上**必须先卸载旧版本，否则会因签名冲突安装失败。1.0.4 起的版本可正常覆盖升级。
+
 ---
 
 ## 🔌 图源导入
