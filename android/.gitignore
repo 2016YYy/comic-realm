@@ -9,8 +9,13 @@ GeneratedPluginRegistrant.java
 
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore
+#
+# 签名材料一律不外传：
+#   - CI：通过 GitHub Secrets 以 COMICREALM_* 环境变量注入；
+#   - 本地：入口诀与路径的 android/key.properties 或 shell 环境变量提供。
+# 因此 keystore / 口令都不再进入仓库（新版本），clone 下来的副本
+# 不含任何可复用签名材料。
 key.properties
 **/*.keystore
 **/*.jks
-# 例外：本项目使用统一发布签名，release-keystore.jks 需随仓库提交
-!app/release-keystore.jks
+**/*.keystore.asc

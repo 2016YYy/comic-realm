@@ -6,9 +6,9 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
-## [1.8.1] - 2026-10-17
+## [1.8.2] - 2026-10-17
 
-> 构建修复与体验增强：搜索历史、图源拖拽排序、详情页批量下载
+> 签名配置移出仓库、Release 命名与说明规范化
 
 ### 🐛 构建修复
 
@@ -35,6 +35,22 @@
 ### 🎬 视频源
 
 - 视频源章节改为调用**系统外部播放器 / 浏览器**打开（`url_launcher`），不再走图片解析流程
+
+### 🔐 签名安全改造
+
+- **Android 签名配置移出仓库**：`android/app/build.gradle.kts` 不再硬编码口令，改为按「环境变量 → `android/key.properties`」读取
+- CI 通过 **GitHub Secrets** 注入签名四要素（`COMICREALM_STORE_FILE` / `COMICREALM_STORE_PASSWORD` / `COMIC_REALM_KEY_ALIAS` / `COMIC_REALM_KEY_PASSWORD`）与 keystore 内容（`COMICREALM_KEYSTORE_BASE64`）
+- CI 增加两道防线：**签名四要素缺失即构建失败**；构建后用 `apksigner verify --print-certs` 打印证书 DN 供人工核对
+- `release-keystore.jks` 已从当前版本索引移除，`.gitignore` 同步改为忽略所有 `*.jks`
+- 新增 [SIGNING.md](SIGNING.md)：Secret 配置步骤、base64 生成命令、证书指纹与本地开发接入方式
+
+### 📝 版本发布规范
+
+- Release 名称统一为 **`ComicRealm v<版本>`**（此前是裸标签名），并在 CI 中固化该命名
+- Release 正文统一格式：消除连续空行、统一 LF 换行、清空说明列，`release-notes.sh` 已修复根因
+- 补记两处历史构建失败：**v1.8.0**（Android 构建失败、产物残缺）与 **v1.6.1**（三平台构建失败、无产物），Release 内已加显著警告
+- 补建缺失的 **v1.6.1 Release**（此前只有 tag 没有 Release）
+- README 新增「发布签名」与「Release 说明规范」章节，标注 1.0.0 ~ 1.0.3 为 debug 签名、升级需先卸载
 
 ## [1.8.0] - 2026-10-17
 
@@ -446,6 +462,7 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
+[1.8.2]: https://github.com/2016YYy/comic-realm/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/2016YYy/comic-realm/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/2016YYy/comic-realm/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/2016YYy/comic-realm/compare/v1.7.1...v1.7.2

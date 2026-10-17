@@ -1,0 +1,16 @@
+# Android 发布签名配置（本文件为模板）
+#
+# 用法：复制本文件为 android/key.properties 并填入真实值。
+#   cp android/key.properties.example android/key.properties
+#
+# android/key.properties 已被 .gitignore 忽略，不会提交到仓库。
+# 四个字段缺任意一个，release 构建将不带正式签名（CI 里则会直接失败）。
+
+storeFile=release-keystore.jks
+storePassword=在此填入 keystore 口令
+keyAlias=comicrealm
+keyPassword=在此填入密钥口令
+
+# 证书指纹（SIGNING.md 有完整说明，用于核对是否为同一份）
+#   SHA-1   3B:F2:48:07:EB:01:F0:EB:54:A1:5A:02:8C:63:2A:98:B0:E4:BB:DB
+#   SHA-256 31:13:BE:CE:E0:2D:74:ED:04:78:F9:49:4D:7E:06:72:8B:EE:4E:20:0E:37:44:41:10:05:C1:DA:05:0D:66:A8
