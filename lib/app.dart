@@ -159,65 +159,117 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: scheme.surface,
-        indicatorColor: scheme.primary.withValues(alpha: 0.18),
-        surfaceTintColor: Colors.transparent,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.video_library_outlined),
-            selectedIcon: Icon(Icons.video_library),
-            label: '书架',
+      // 自定义底部导航：点击时图标与文字同步变色，并带缩放/颜色过渡动画
+      bottomNavigationBar: Material(
+        color: scheme.surface,
+        elevation: 2,
+        child: SafeArea(
+          child: Row(
+            children: List.generate(_navItems.length, (i) {
+              return _AnimatedNavItem(
+                item: _navItems[i],
+                selected: _index == i,
+                onTap: () => setState(() => _index = i),
+                badge: i == 4 ? context.watch<UpdateService>().hasUpdate : false,
+              );
+            }),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: '发现',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.download_outlined),
-            selectedIcon: Icon(Icons.download),
-            label: '下载',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.dns_outlined),
-            selectedIcon: Icon(Icons.dns),
-            label: '图源',
-          ),
-          NavigationDestination(
-            icon: Consumer<UpdateService>(
-              builder: (context, update, _) => _UpdateBadge(
-                show: update.hasUpdate,
-                child: const Icon(Icons.settings_outlined),
-              ),
-            ),
-            selectedIcon: Consumer<UpdateService>(
-              builder: (context, update, _) => _UpdateBadge(
-                show: update.hasUpdate,
-                child: const Icon(Icons.settings),
-              ),
-            ),
-            label: '设置',
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// 有新版本时给小圆点提示
-class _UpdateBadge extends StatelessWidget {
-  final Widget child;
-  final bool show;
+/// 底部导航数据项
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  const _NavItem(this.icon, this.activeIcon, this.label);
+}
 
-  const _UpdateBadge({required this.child, required this.show});
+const _navItems = <_NavItem>[
+  _NavItem(Icons.video_library_outlined, Icons.video_library, '书架'),
+  _NavItem(Icons.explore_outlined, Icons.explore, '发现'),
+  _NavItem(Icons.download_outlined, Icons.download, '下载'),
+  _NavItem(Icons.dns_outlined, Icons.dns, '图源'),
+  _NavItem(Icons.settings_outlined, Icons.settings, '设置'),
+];
+
+/// 单个导航项：选中时图标+文字同时变色（主题色），带弹性缩放动画。
+class _AnimatedNavItem extends StatelessWidget {
+  final _NavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool badge;
+
+  const _AnimatedNavItem({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    this.badge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (!show) return child;
-    return Badge(child: child);
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 1.0, end: selected ? 1.12 : 1.0),
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutBack,
+            builder: (context, scale, child) => Transform.scale(
+              scale: scale,
+              child: child,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      transitionBuilder: (child, anim) =>
+                          ScaleTransition(scale: anim, child: child),
+                      child: Icon(
+                        selected ? item.activeIcon : item.icon,
+                        key: ValueKey(selected),
+                        size: 24,
+                        // 点击变色：图标颜色随选中态平滑过渡
+                        color: color,
+                      ),
+                    ),
+                    if (badge)
+                      const Positioned(
+                        right: -6,
+                        top: -2,
+                        child: Badge(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    // 点击变色：文字颜色随选中态平滑过渡
+                    color: color,
+                  ),
+                  child: Text(item.label),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

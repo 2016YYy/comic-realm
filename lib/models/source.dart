@@ -270,6 +270,14 @@ class ComicSource extends HiveObject {
         'weight': weight,
       };
 
+  /// 是否为视频（/音频）源。
+  ///
+  /// legado bookSourceType: 0=文本 1=图片 2=音频 3=视频；异次元为「漫画」。
+  bool get isVideo {
+    final t = bookSourceType.toString().trim().toLowerCase();
+    return t == '3' || t == '4' || t == 'video' || t == '视频' || t == '音频' || t == 'audio';
+  }
+
   /// 是否为小说（文本）源。
   ///
   /// legado 书源 bookSourceType 通常为 0（文本）或字符串「0」/「文本」；
@@ -282,7 +290,18 @@ class ComicSource extends HiveObject {
   }
 
   /// 是否为漫画（图片）源。
-  bool get isComic => !isNovel;
+  bool get isComic => !isNovel && !isVideo;
+
+  /// 源类型枚举：用于书架分类与图源管理页展示。
+  SourceKind get kind =>
+      isVideo ? SourceKind.video : (isNovel ? SourceKind.novel : SourceKind.comic);
+
+  /// 源类型中文标签
+  String get kindLabel => switch (kind) {
+        SourceKind.comic => '漫画',
+        SourceKind.novel => '小说',
+        SourceKind.video => '视频',
+      };
 
   /// 发现页分类列表：标题::url
   List<FindCategory> get findCategories {
@@ -304,3 +323,6 @@ class FindCategory {
   final String url;
   FindCategory(this.title, this.url);
 }
+
+/// 源内容类型
+enum SourceKind { comic, novel, video }

@@ -227,7 +227,7 @@ class SourceEngine {
   /// 再用请求的 baseUrl 兜底。避免搜索列表未配置 noteUrl 时出现
   /// 「缺少主机名」而整个章节列表加载失败。
   String _resolveAgainstSource(ComicSource source, String url, {String? base}) {
-    final raw = (url ?? '').trim();
+    final raw = url.trim();
     if (raw.isEmpty) {
       return source.bookSourceUrl.trim().isNotEmpty ? source.bookSourceUrl.trim() : '';
     }

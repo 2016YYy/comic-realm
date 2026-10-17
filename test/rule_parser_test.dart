@@ -59,12 +59,12 @@ void main() {
   });
 
   group('jsonMode：JSON 响应自动按 JSONPath 解析', () {
-    test('未带 $ 前缀的规则在 jsonMode 下解析为 JSONPath', () {
+    test(r'未带 $ 前缀的规则在 jsonMode 下解析为 JSONPath', () {
       final r = RuleParser.parse('data.list[*].name', jsonMode: true);
       expect(r.steps.first.jsonPath, 'data.list[*].name');
     });
 
-    test('不带 $ 前缀的 JSONPath 也能求值', () {
+    test(r'不带 $ 前缀的 JSONPath 也能求值', () {
       final data = {
         'data': {
           'list': [

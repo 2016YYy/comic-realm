@@ -45,6 +45,10 @@ class Comic extends HiveObject {
   @HiveField(12)
   int status;
 
+  /// 内容类型：'漫画' / '小说' / '视频'（收藏时按源类型写入，旧数据为空串按漫画处理）
+  @HiveField(13)
+  String sourceType;
+
   Comic({
     this.name = '',
     this.author = '',
@@ -59,7 +63,14 @@ class Comic extends HiveObject {
     this.updateTime,
     this.folder = '',
     this.status = 0,
+    this.sourceType = '',
   });
+
+  /// 类型标签（空串兜底为漫画，兼容旧收藏数据）
+  String get typeLabel => sourceType.isEmpty ? '漫画' : sourceType;
+  bool get isNovelItem => typeLabel == '小说';
+  bool get isVideoItem => typeLabel == '视频';
+  bool get isComicItem => !isNovelItem && !isVideoItem;
 
   /// 稳定的单本标识：优先用详情页地址，为空时回退书名
   /// （分类页 / 发现页的漫画常常没有 noteUrl，若直接用空串当键，
@@ -85,6 +96,7 @@ class Comic extends HiveObject {
         'isFavorite': isFavorite,
         'folder': folder,
         'status': status,
+        'sourceType': sourceType,
       };
 }
 

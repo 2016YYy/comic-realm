@@ -64,7 +64,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
           const SizedBox(height: 16),
           Text(
             '图源 / 书源规则兼容 开源阅读(legado) / 异次元 的 JSON 格式，'
-            '支持文本小说源与漫画图源。\n'
+            '支持漫画图源、文本小说源与视频源（自动识别类型）。\n'
             '可在源仓库站获取源地址：\n'
             '• 图源：https://www.yckceo.com/yiciyuan/tuyuans/json/id/50.json\n'
             '• 书源：https://www.yckceo.com/yuedu/shuyuans/json/id/293.json',
@@ -163,6 +163,20 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
     );
   }
 
+  /// 导入成功提示：按识别出的源类型（漫画/小说/视频）分类统计
+  void _showImportToast(List imported) {
+    if (!mounted) return;
+    final counts = <String, int>{};
+    for (final s in imported) {
+      final label = (s as dynamic).kindLabel as String? ?? '漫画';
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+    final detail =
+        counts.entries.map((e) => '${e.key}${e.value}个').join('、');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('成功导入 ${imported.length} 个源（$detail）')));
+  }
+
   Future<void> _importFromUrl() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
@@ -173,7 +187,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
     try {
       final imported = await context.read<SourceService>().importFromUrl(url);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      _showImportToast(imported);
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));
@@ -193,7 +207,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
     try {
       final imported = await sourceService.importFromFile(result.files.single.path!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      _showImportToast(imported);
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -208,7 +222,7 @@ class _SourceImportScreenState extends State<SourceImportScreen> {
     try {
       final imported = await context.read<SourceService>().importFromJson(content);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 ${imported.length} 个图源')));
+      _showImportToast(imported);
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导入失败：$e')));

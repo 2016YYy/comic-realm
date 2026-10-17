@@ -62,6 +62,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool _loading = true;
   String? _error;
   bool _chromeVisible = false; // 默认沉浸式，点击中间区域才显示菜单
+  // 阅读菜单扩展状态
+  bool _chapterReversed = false; // 章节目录倒序
+  double _dimming = 0; // 亮度调节（0=最亮，0.6=最暗）
+  int _novelBg = 0; // 小说背景色：0=黑 1=米黄 2=浅绿 3=羊皮纸
+  final TextEditingController _jumpCtrl = TextEditingController();
+
+  static const _novelBgColors = <Color>[
+    Colors.black,
+    Color(0xFFF5EFDC),
+    Color(0xFFE3EFE3),
+    Color(0xFFEAD9C0),
+  ];
+  static const _novelBgTextColors = <Color>[
+    Colors.white,
+    Color(0xFF3B3021),
+    Color(0xFF263226),
+    Color(0xFF403122),
+  ];
 
   bool get _isNovel {
     if (widget.source != null) return widget.source!.isNovel;
@@ -94,6 +112,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
     );
+    _jumpCtrl.dispose();
     super.dispose();
   }
 
@@ -155,71 +174,148 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  /// 阅读设置底部弹窗：阅读模式 + 字号（小说）
+  /// 阅读设置底部弹窗：阅读模式 + 字号（小说）+ 亮度 + 背景色
   Future<void> _showReaderSettings() async {
     final settings = context.read<SettingsService>();
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('阅读设置',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              const Text('阅读模式', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              ListenableBuilder(
-                listenable: settings,
-                builder: (_, __) => SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('连续滚动'), icon: Icon(Icons.view_agenda_outlined)),
-                    ButtonSegment(value: false, label: Text('横向翻页'), icon: Icon(Icons.swipe_outlined)),
-                  ],
-                  selected: {settings.readerContinuous},
-                  onSelectionChanged: (v) => settings.readerContinuous = v.first,
-                ),
-              ),
-              if (_isNovel) ...[
-                const SizedBox(height: 20),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('阅读设置',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                const Text('阅读模式',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
                 ListenableBuilder(
                   listenable: settings,
-                  builder: (_, __) => Row(
-                    children: [
-                      const Icon(Icons.text_fields, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Slider(
-                          min: 12,
-                          max: 28,
-                          divisions: 16,
-                          value: settings.readerFontSize,
-                          label: '${settings.readerFontSize.round()}',
-                          onChanged: (v) => settings.readerFontSize = v,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 32,
-                        child: Text('${settings.readerFontSize.round()}',
-                            textAlign: TextAlign.right),
-                      ),
+                  builder: (_, __) => SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                          value: true,
+                          label: Text('连续滚动'),
+                          icon: Icon(Icons.view_agenda_outlined)),
+                      ButtonSegment(
+                          value: false,
+                          label: Text('横向翻页'),
+                          icon: Icon(Icons.swipe_outlined)),
                     ],
+                    selected: {settings.readerContinuous},
+                    onSelectionChanged: (v) =>
+                        settings.readerContinuous = v.first,
                   ),
                 ),
+                const SizedBox(height: 20),
+                // 亮度调节（参照开源阅读：屏幕遮罩变暗）
+                Row(
+                  children: [
+                    const Icon(Icons.brightness_4_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('亮度', style: TextStyle(fontSize: 13)),
+                    Expanded(
+                      child: Slider(
+                        min: 0,
+                        max: 0.6,
+                        value: _dimming,
+                        label: _dimming == 0
+                            ? '最亮'
+                            : '${(100 - _dimming / 0.6 * 100).round()}%',
+                        onChanged: (v) {
+                          setSheet(() => _dimming = v);
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                if (_isNovel) ...[
+                  const Text('背景色',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(_novelBgColors.length, (i) {
+                      final active = _novelBg == i;
+                      return GestureDetector(
+                        onTap: () {
+                          setSheet(() => _novelBg = i);
+                          setState(() {});
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.only(right: 12),
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _novelBgColors[i],
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: active
+                                  ? Theme.of(ctx).colorScheme.primary
+                                  : Colors.grey,
+                              width: active ? 3 : 1,
+                            ),
+                          ),
+                          child: active
+                              ? Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: _novelBgTextColors[i],
+                                )
+                              : null,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  // 字号
+                  ListenableBuilder(
+                    listenable: settings,
+                    builder: (_, __) => Row(
+                      children: [
+                        const Icon(Icons.text_fields, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Slider(
+                            min: 12,
+                            max: 28,
+                            divisions: 16,
+                            value: settings.readerFontSize,
+                            label: '${settings.readerFontSize.round()}',
+                            onChanged: (v) {
+                              settings.readerFontSize = v;
+                              setSheet(() {});
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 32,
+                          child: Text('${settings.readerFontSize.round()}',
+                              textAlign: TextAlign.right),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
               ],
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 章节目录弹窗：快速跳转到指定章节。
+  /// 章节目录弹窗：快速跳转到指定章节，支持倒序与章节号跳转。
   Future<void> _showChapterList() async {
     final chapters = widget.chapters;
     if (chapters == null || chapters.isEmpty) return;
@@ -230,6 +326,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       builder: (_) => _ChapterListSheet(
         chapters: chapters,
         currentIndex: _currentIndex,
+        reversed: _chapterReversed,
+        jumpCtrl: _jumpCtrl,
+        onToggleReversed: () => setState(() => _chapterReversed = !_chapterReversed),
       ),
     );
     if (selected == null || !mounted || selected == _currentIndex) return;
@@ -290,6 +389,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
       body: Stack(
         children: [
           _buildBody(continuous),
+          // 亮度遮罩：数值越大越暗（阅读菜单中调节）
+          if (_dimming > 0)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _dimming,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(color: Colors.black),
+                ),
+              ),
+            ),
           // 点击分区：左侧上一话，中间切换菜单，右侧下一话
           Positioned.fill(
             child: Row(
@@ -325,7 +435,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  /// 底部操作栏：上一话 / 目录 / 下一话（与顶部菜单一同显示）。
+  /// 底部操作栏：上一话 / 目录 / 阅读模式 / 亮度 / 设置 / 下一话（与顶部菜单一同显示）。
   Widget _buildBottomBar() {
     final chapterCount = widget.chapters?.length ?? 0;
     final style = TextButton.styleFrom(foregroundColor: Colors.white);
@@ -335,33 +445,94 @@ class _ReaderScreenState extends State<ReaderScreen> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed:
-                      (!_isOffline && _currentIndex > 0) ? _prev : null,
-                  icon: const Icon(Icons.skip_previous, size: 20),
-                  label: const Text('上一话'),
-                  style: style,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed:
+                          (!_isOffline && _currentIndex > 0) ? _prev : null,
+                      icon: const Icon(Icons.skip_previous, size: 20),
+                      label: const Text('上一话'),
+                      style: style,
+                    ),
+                  ),
+                  if (chapterCount > 0 && !_isOffline)
+                    TextButton.icon(
+                      onPressed: _showChapterList,
+                      icon: const Icon(Icons.menu_book_outlined, size: 20),
+                      label: Text('目录 ${_currentIndex + 1}/$chapterCount'),
+                      style: style,
+                    ),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: (!_isOffline && _currentIndex < chapterCount - 1)
+                          ? _next
+                          : null,
+                      icon: const Icon(Icons.skip_next, size: 20),
+                      label: const Text('下一话'),
+                      style: style,
+                    ),
+                  ),
+                ],
               ),
-              if (chapterCount > 0 && !_isOffline)
-                TextButton.icon(
-                  onPressed: _showChapterList,
-                  icon: const Icon(Icons.menu_book_outlined, size: 20),
-                  label: Text('目录 ${_currentIndex + 1}/$chapterCount'),
-                  style: style,
-                ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: (!_isOffline && _currentIndex < chapterCount - 1)
-                      ? _next
-                      : null,
-                  icon: const Icon(Icons.skip_next, size: 20),
-                  label: const Text('下一话'),
-                  style: style,
-                ),
+              // 第二行工具条（参照开源阅读）
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      final settings = context.read<SettingsService>();
+                      settings.readerContinuous = !settings.readerContinuous;
+                      setState(() {});
+                    },
+                    icon: Icon(
+                      context.watch<SettingsService>().readerContinuous
+                          ? Icons.view_agenda
+                          : Icons.swipe,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      context.watch<SettingsService>().readerContinuous
+                          ? '滚动'
+                          : '翻页',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    style: style,
+                  ),
+                  IconButton(
+                    tooltip: '亮度调节',
+                    onPressed: _showReaderSettings,
+                    icon: const Icon(Icons.brightness_4_outlined,
+                        color: Colors.white, size: 20),
+                  ),
+                  IconButton(
+                    tooltip: '夜间 / 日间',
+                    onPressed: () {
+                      setState(() {
+                        if (_dimming > 0) {
+                          _dimming = 0;
+                        } else {
+                          _dimming = 0.45;
+                        }
+                      });
+                    },
+                    icon: Icon(
+                      _dimming > 0 ? Icons.wb_sunny : Icons.nights_stay,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '阅读设置',
+                    onPressed: _showReaderSettings,
+                    icon: const Icon(Icons.settings_outlined,
+                        color: Colors.white, size: 20),
+                  ),
+                ],
               ),
             ],
           ),
@@ -405,18 +576,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildNovelText() {
     final settings = context.watch<SettingsService>();
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      children: [
-        Text(
-          _text,
-          style: TextStyle(
-            fontSize: settings.readerFontSize.toDouble(),
-            height: 1.8,
-            color: Colors.white,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      color: _novelBgColors[_novelBg],
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        children: [
+          Text(
+            _text,
+            style: TextStyle(
+              fontSize: settings.readerFontSize.toDouble(),
+              height: 1.8,
+              color: _novelBgTextColors[_novelBg],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -463,46 +638,113 @@ class _ReaderImage extends StatelessWidget {
   }
 }
 
-/// 章节目录弹窗：列出全部章节，点击跳转。
+/// 章节目录弹窗：列出全部章节，支持正序/倒序切换与章节号跳转。
 class _ChapterListSheet extends StatelessWidget {
   final List<Chapter> chapters;
   final int currentIndex;
+  final bool reversed;
+  final TextEditingController jumpCtrl;
+  final VoidCallback onToggleReversed;
 
   const _ChapterListSheet({
     required this.chapters,
     required this.currentIndex,
+    required this.reversed,
+    required this.jumpCtrl,
+    required this.onToggleReversed,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final indices = List<int>.generate(chapters.length, (i) => i);
+    final display = reversed ? indices.reversed.toList() : indices;
+    final controller = ScrollController(
+      initialScrollOffset: 0,
+      keepScrollOffset: true,
+    );
+    // 立即定位到当前章节
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pos = display.indexOf(currentIndex);
+      if (pos > 0 && controller.hasClients) {
+        controller.jumpTo((pos * 48.0).clamp(0, controller.position.maxScrollExtent));
+      }
+    });
     return SafeArea(
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
-        child: ListView.builder(
-          itemCount: chapters.length,
-          itemBuilder: (_, i) {
-            final active = i == currentIndex;
-            return ListTile(
-              selected: active,
-              leading: Text(
-                '${i + 1}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: active ? scheme.primary : scheme.onSurfaceVariant,
-                ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  // 章节号跳转
+                  Expanded(
+                    child: TextField(
+                      controller: jumpCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: '跳转到章节号（1-${chapters.length}）',
+                        prefixIcon: const Icon(Icons.tag, size: 18),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onSubmitted: (v) {
+                        final n = int.tryParse(v.trim());
+                        if (n != null && n >= 1 && n <= chapters.length) {
+                          Navigator.pop(context, n - 1);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: reversed ? '当前：倒序' : '当前：正序',
+                    onPressed: onToggleReversed,
+                    icon: Icon(reversed
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward),
+                  ),
+                ],
               ),
-              title: Text(
-                chapters[i].name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                itemCount: display.length,
+                itemExtent: 48,
+                itemBuilder: (_, pos) {
+                  final i = display[pos];
+                  final active = i == currentIndex;
+                  return ListTile(
+                    dense: true,
+                    selected: active,
+                    leading: Text(
+                      '${i + 1}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: active ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    title: Text(
+                      chapters[i].name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: active
+                        ? Icon(Icons.play_arrow, color: scheme.primary, size: 20)
+                        : null,
+                    onTap: () => Navigator.pop(context, i),
+                  );
+                },
               ),
-              trailing: active
-                  ? Icon(Icons.play_arrow, color: scheme.primary, size: 20)
-                  : null,
-              onTap: () => Navigator.pop(context, i),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

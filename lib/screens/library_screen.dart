@@ -28,6 +28,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   String _selectedFolder = ''; // '' = 全部；_kDownloadedFilter = 已下载；其他 = 文件夹名
+  String _typeFilter = ''; // '' = 全部类型；'漫画' / '小说' / '视频'
   bool _selecting = false;
   final Set<String> _selected = <String>{};
 
@@ -39,7 +40,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final downloadService = context.watch<DownloadService>();
     final folders = settings.folders;
     final all = _sorted(comicService.favorites, settings, history);
-    final comics = _applyFilter(all, downloadService);
+    final typeCounts = _typeCounts(all);
+    final byType = _typeFilter.isEmpty
+        ? all
+        : all.where((c) => c.typeLabel == _typeFilter).toList();
+    final comics = _applyFilter(byType, downloadService);
 
     return Scaffold(
       appBar: _selecting
@@ -47,39 +52,77 @@ class _LibraryScreenState extends State<LibraryScreen> {
           : _buildDefaultAppBar(comics),
       body: Column(
         children: [
-          if (!_selecting)
-            _FolderBar(
-              folders: folders,
-              selected: _selectedFolder,
-              onSelected: (f) => setState(() => _selectedFolder = f),
-              onAdd: _createFolder,
-              onRename: _renameFolder,
-              onDelete: _deleteFolder,
+          if (!_selecting) ...[
+            // 全新改版：按内容类型（漫画 / 小说 / 视频）分类切换
+            _TypeBar(
+              selected: _typeFilter,
+              counts: typeCounts,
+              onSelected: (t) => setState(() => _typeFilter = t),
             ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _FolderBar(
+                folders: folders,
+                selected: _selectedFolder,
+                onSelected: (f) => setState(() => _selectedFolder = f),
+                onAdd: _createFolder,
+                onRename: _renameFolder,
+                onDelete: _deleteFolder,
+              ),
+            ),
+          ],
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => comicService.reload(),
-              child: comics.isEmpty
-                  ? _EmptyLibrary(
-                      onSearch: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SearchScreen()),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.03),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: RefreshIndicator(
+                key: ValueKey('$_typeFilter-$_selectedFolder'),
+                onRefresh: () async => comicService.reload(),
+                child: comics.isEmpty
+                    ? _EmptyLibrary(
+                        onSearch: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SearchScreen()),
+                        ),
+                      )
+                    : _LibraryBody(
+                        comics: comics,
+                        mode: settings.libraryViewMode,
+                        selecting: _selecting,
+                        selected: _selected,
+                        downloadService: downloadService,
+                        onToggle: _toggleSelect,
+                        onLongPress: _showActions,
                       ),
-                    )
-                  : _LibraryBody(
-                      comics: comics,
-                      mode: settings.libraryViewMode,
-                      selecting: _selecting,
-                      selected: _selected,
-                      onToggle: _toggleSelect,
-                      onLongPress: _showActions,
-                    ),
+              ),
             ),
           ),
         ],
       ),
       bottomNavigationBar: _selecting ? _buildSelectionBar() : null,
     );
+  }
+
+  Map<String, int> _typeCounts(List<Comic> all) {
+    final counts = <String, int>{'': all.length};
+    for (final c in all) {
+      counts[c.typeLabel] = (counts[c.typeLabel] ?? 0) + 1;
+    }
+    return counts;
   }
 
   AppBar _buildDefaultAppBar(List<Comic> comics) {
@@ -462,7 +505,9 @@ class _FolderBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => onSelected(value),
         onLongPress: folder == null ? null : () => _folderMenu(context, folder),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -533,6 +578,7 @@ class _LibraryBody extends StatelessWidget {
   final LibraryViewMode mode;
   final bool selecting;
   final Set<String> selected;
+  final DownloadService downloadService;
   final ValueChanged<Comic> onToggle;
   final ValueChanged<Comic> onLongPress;
 
@@ -541,6 +587,7 @@ class _LibraryBody extends StatelessWidget {
     required this.mode,
     required this.selecting,
     required this.selected,
+    required this.downloadService,
     required this.onToggle,
     required this.onLongPress,
   });
@@ -556,6 +603,7 @@ class _LibraryBody extends StatelessWidget {
           comic: comics[i],
           selecting: selecting,
           isSelected: selected.contains(comics[i].uniqueKey),
+          downloaded: downloadService.hasDownloadsFor(comics[i]),
           onToggle: () => onToggle(comics[i]),
           onLongPress: () => onLongPress(comics[i]),
         ),
@@ -582,6 +630,7 @@ class _LibraryBody extends StatelessWidget {
             compact: compact,
             selecting: selecting,
             isSelected: selected.contains(comics[i].uniqueKey),
+            downloaded: downloadService.hasDownloadsFor(comics[i]),
             onToggle: () => onToggle(comics[i]),
             onLongPress: () => onLongPress(comics[i]),
           ),
@@ -596,6 +645,7 @@ class _LibraryGridItem extends StatelessWidget {
   final bool compact;
   final bool selecting;
   final bool isSelected;
+  final bool downloaded;
   final VoidCallback onToggle;
   final VoidCallback onLongPress;
 
@@ -604,6 +654,7 @@ class _LibraryGridItem extends StatelessWidget {
     required this.compact,
     required this.selecting,
     required this.isSelected,
+    required this.downloaded,
     required this.onToggle,
     required this.onLongPress,
   });
@@ -623,8 +674,26 @@ class _LibraryGridItem extends StatelessWidget {
               children: [
                 Hero(
                   tag: comic.heroTag,
-                  child: ComicCover(url: comic.coverUrl, width: double.infinity),
+                  child: AnimatedScale(
+                    scale: isSelected ? 0.94 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    child: ComicCover(
+                        url: comic.coverUrl, width: double.infinity),
+                  ),
                 ),
+                if (downloaded)
+                  Positioned(
+                    left: 4,
+                    top: 4,
+                    child: _DownloadedBadge(downloaded: downloaded),
+                  ),
+                if (!selecting && !comic.isComicItem)
+                  Positioned(
+                    left: 4,
+                    bottom: 4,
+                    child: _TypeTag(label: comic.typeLabel),
+                  ),
                 if (selecting)
                   Positioned(
                     top: 4,
@@ -663,6 +732,7 @@ class _LibraryListTile extends StatelessWidget {
   final Comic comic;
   final bool selecting;
   final bool isSelected;
+  final bool downloaded;
   final VoidCallback onToggle;
   final VoidCallback onLongPress;
 
@@ -670,6 +740,7 @@ class _LibraryListTile extends StatelessWidget {
     required this.comic,
     required this.selecting,
     required this.isSelected,
+    required this.downloaded,
     required this.onToggle,
     required this.onLongPress,
   });
@@ -681,7 +752,16 @@ class _LibraryListTile extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: selecting
           ? Checkbox(value: isSelected, onChanged: (_) => onToggle())
-          : ComicCover(url: comic.coverUrl, width: 56, height: 78),
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ComicCover(url: comic.coverUrl, width: 56, height: 78),
+                if (downloaded)
+                  Positioned(left: -3, top: -3, child: _DownloadedBadge(downloaded: true)),
+                if (!comic.isComicItem)
+                  Positioned(left: 0, bottom: 0, child: _TypeTag(label: comic.typeLabel)),
+              ],
+            ),
       title: Text(
         comic.name,
         maxLines: 2,
@@ -942,8 +1022,141 @@ class _ChapterPickerSheetState extends State<_ChapterPickerSheet> {
   }
 }
 
-void _open(BuildContext context, Comic comic) {
-  Navigator.push(
+/// 书架类型分类栏：全部 / 漫画 / 书源（小说） / 视频
+class _TypeBar extends StatelessWidget {
+  final String selected;
+  final Map<String, int> counts;
+  final ValueChanged<String> onSelected;
+
+  const _TypeBar({
+    required this.selected,
+    required this.counts,
+    required this.onSelected,
+  });
+
+  static const _tabs = <String, (IconData, String)>{
+    '': (Icons.collections_bookmark_outlined, '全部'),
+    '漫画': (Icons.image_outlined, '漫画'),
+    '小说': (Icons.auto_stories_outlined, '书源'),
+    '视频': (Icons.smart_display_outlined, '视频'),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+      ),
+      child: Row(
+        children: _tabs.entries.map((e) {
+          final active = selected == e.key;
+          final count = counts[e.key] ?? 0;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onSelected(e.key),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                decoration: BoxDecoration(
+                  color: active
+                      ? scheme.primaryContainer.withValues(alpha: 0.7)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      e.value.$1,
+                      size: 20,
+                      color: active ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 2),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: e.value.$2),
+                          if (count > 0)
+                            TextSpan(
+                              text: ' $count',
+                              style: TextStyle(
+                                  fontSize: 10, color: scheme.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                        color: active ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// 已下载角标
+class _DownloadedBadge extends StatelessWidget {
+  final bool downloaded;
+  const _DownloadedBadge({required this.downloaded});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.offline_bolt, size: 10, color: scheme.onPrimary),
+          const SizedBox(width: 2),
+          Text('已下载', style: TextStyle(fontSize: 9, color: scheme.onPrimary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 类型标签（漫画 / 小说 / 视频）
+class _TypeTag extends StatelessWidget {
+  final String label;
+  const _TypeTag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(6),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 9, color: scheme.onSurface),
+      ),
+    );
+  }
+}
+
+void _open(BuildContext context, Comic comic) {  Navigator.push(
     context,
     MaterialPageRoute(builder: (_) => ComicDetailScreen(comic: comic)),
   );

@@ -11,6 +11,39 @@ import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
 import 'reader_screen.dart';
 
+/// 侧滑删除确认：返回 true 才真正移除任务
+Future<bool> _confirmSwipeDelete(BuildContext context, DownloadTask task) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('删除下载'),
+      content: Text('确定删除「${task.chapterName}」的本地缓存吗？'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// 侧滑时露出的红色删除背景
+class _SwipeDeleteBackground extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(Icons.delete_outline, color: scheme.onErrorContainer, size: 26),
+    );
+  }
+}
+
 /// 下载管理：查看章节下载进度、清理已下载内容。
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key});
@@ -34,7 +67,18 @@ class DownloadsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: tasks.length,
               separatorBuilder: (_, __) => const SizedBox(height: 4),
-              itemBuilder: (_, i) => _DownloadTile(task: tasks[i]),
+              // 侧滑删除：向左滑出删除按钮，确认后删除本地缓存
+              itemBuilder: (_, i) => Dismissible(
+                key: ValueKey(tasks[i].taskId),
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (_) => _confirmSwipeDelete(context, tasks[i]),
+                background: _SwipeDeleteBackground(),
+                onDismissed: (_) {
+                  context.read<DownloadService>().deleteTask(tasks[i]);
+                  showToast(context, '已删除「${tasks[i].chapterName}」');
+                },
+                child: _DownloadTile(task: tasks[i]),
+              ),
             ),
     );
   }

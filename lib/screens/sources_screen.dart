@@ -80,8 +80,33 @@ class _SourcesScreenState extends State<SourcesScreen> {
                       color: color,
                     ),
                   ),
-                  title: Text(source.bookSourceName,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Row(
+                    children: [
+                      // 源类型标识：漫画 / 小说 / 视频
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: _kindColor(source.kind, scheme)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          source.kindLabel,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: _kindColor(source.kind, scheme),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(source.bookSourceName,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                   subtitle: Text(
                     _subtitle(source),
                     maxLines: 2,
@@ -283,5 +308,17 @@ class _SourcesScreenState extends State<SourcesScreen> {
         ],
       ),
     );
+  }
+}
+
+/// 源类型对应的徽标颜色
+Color _kindColor(SourceKind kind, ColorScheme scheme) {
+  switch (kind) {
+    case SourceKind.comic:
+      return scheme.primary;
+    case SourceKind.novel:
+      return Colors.orange;
+    case SourceKind.video:
+      return Colors.teal;
   }
 }

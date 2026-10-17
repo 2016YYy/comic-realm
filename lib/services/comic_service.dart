@@ -100,8 +100,18 @@ class ComicService extends ChangeNotifier {
   /// 收藏
   Future<void> addFavorite(Comic comic) async {
     comic.isFavorite = true;
+    // 记录源内容类型（漫画/小说/视频），书架分类展示用
+    comic.sourceType = _sourceKindLabel(comic.sourceUrl);
     await AppDatabase.favorites.put(favoriteKey(comic), comic);
     notifyListeners();
+  }
+
+  /// 根据图源地址解析内容类型标签
+  String _sourceKindLabel(String sourceUrl) {
+    for (final s in AppDatabase.sources.values) {
+      if (s.bookSourceUrl == sourceUrl) return s.kindLabel;
+    }
+    return '';
   }
 
   Future<void> removeFavorite(Comic comic) async {
