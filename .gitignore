@@ -42,3 +42,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android 构建产物
+android/build/
+android/app/build/
+*.apk
