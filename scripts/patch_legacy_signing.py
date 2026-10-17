@@ -6,6 +6,7 @@
 """
 
 import pathlib
+import re
 import sys
 
 GRADLE = pathlib.Path("android/app/build.gradle.kts")
@@ -30,8 +31,11 @@ def main() -> int:
     src = GRADLE.read_text(encoding="utf-8")
     original = src
 
-    # 1) 若没有 signingConfigs，就在 android { 后插入 release 配置
-    if "signingConfigs" not in src:
+    # 1) 若没有 signingConfigs { ... } 块，就在 android { 后插入 release 配置。
+    #    注意：旧版本里有 signingConfigs.getByName("debug") 这种调用，
+    #    光判断 "signingConfigs" 字样会误判为“已存在”，必须匹配带大括号的块声明。
+    has_block = re.search(r"signingConfigs\s*\{", src) is not None
+    if not has_block:
         if "android {" not in src:
             print("::error::build.gradle.kts 结构异常，找不到 android { 块", file=sys.stderr)
             return 1
