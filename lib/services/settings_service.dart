@@ -44,6 +44,7 @@ class SettingsService extends ChangeNotifier {
   static const _kReaderFontSize = 'readerFontSize';
   static const _kDisclaimerAccepted = 'disclaimerAccepted';
   static const _kFolders = 'libraryFolders';
+  static const _kSearchHistory = 'searchHistory';
 
   Box get _box => AppDatabase.settings;
 
@@ -188,6 +189,49 @@ class SettingsService extends ChangeNotifier {
     if (i < 0 || newName.trim().isEmpty || list.contains(newName)) return;
     list[i] = newName;
     _box.put(_kFolders, list);
+    notifyListeners();
+  }
+
+  // ---------------- 搜索历史 ----------------
+
+  /// 搜索历史关键词上限
+  static const int maxSearchHistory = 20;
+
+  /// 最近搜索过的关键词，最新的排在最前
+  List<String> get searchHistory {
+    final v = _box.get(_kSearchHistory);
+    if (v is List) {
+      return v
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
+    }
+    return [];
+  }
+
+  /// 记录一次搜索：去重后置顶，超出上限截断。
+  void addSearchHistory(String keyword) {
+    final k = keyword.trim();
+    if (k.isEmpty) return;
+    final list = searchHistory..remove(k);
+    list.insert(0, k);
+    if (list.length > maxSearchHistory) {
+      list.removeRange(maxSearchHistory, list.length);
+    }
+    _box.put(_kSearchHistory, list);
+    notifyListeners();
+  }
+
+  /// 删除单条搜索历史
+  void removeSearchHistory(String keyword) {
+    final list = searchHistory..remove(keyword);
+    _box.put(_kSearchHistory, list);
+    notifyListeners();
+  }
+
+  /// 清空全部搜索历史
+  void clearSearchHistory() {
+    _box.put(_kSearchHistory, const <String>[]);
     notifyListeners();
   }
 }

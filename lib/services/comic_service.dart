@@ -77,6 +77,12 @@ class ComicService extends ChangeNotifier {
     return engine.getContentText(source, chapter, comic);
   }
 
+  /// 获取视频章节播放地址（视频源专用）。
+  Future<List<String>> getVideoUrls(
+      ComicSource source, Chapter chapter, Comic comic) {
+    return engine.getVideoUrls(source, chapter, comic);
+  }
+
   /// 收藏键：sourceUrl + '\u0000' + (noteUrl 为空时用 name 兜底)。
   /// 之前用 noteUrl 当键，分类页漫画 noteUrl 常为空，导致所有漫画共用空键，
   /// 收藏一个就会让整页爱心全亮。现在统一走 [Comic.uniqueKey]。

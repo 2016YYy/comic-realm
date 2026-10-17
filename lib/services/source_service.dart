@@ -278,6 +278,24 @@ class SourceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 调整图源顺序：按传入顺序重排 weight（越靠前 weight 越大）。
+  ///
+  /// 搜索、发现页均按 weight 降序取源，因此拖拽后的顺序会全局生效。
+  /// 只重写 weight 有变化的条目，避免无谓的写盘。
+  Future<void> reorderSources(List<ComicSource> ordered) async {
+    if (ordered.isEmpty) return;
+    final total = ordered.length;
+    for (var i = 0; i < total; i++) {
+      final source = ordered[i];
+      final newWeight = total - i;
+      if (source.weight != newWeight) {
+        source.weight = newWeight;
+        await source.save();
+      }
+    }
+    notifyListeners();
+  }
+
   // -------------------- 图源有效性检测 --------------------
 
   /// 判断异常是否为网络级错误（说明源站不可达）。

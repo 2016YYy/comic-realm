@@ -159,6 +159,49 @@ class SourceEngine {
     return urls.where((u) => seen.add(u)).toList();
   }
 
+  /// 获取视频章节的播放地址列表（用于视频源，区别于 [getContent] 的图片列表）。
+  ///
+  /// 视频源的 `ruleBookContent` 通常直接给出 mp4 / m3u8 播放地址（可能是
+  /// 相对路径或写在 data-src 之类的懒加载属性里），这里复用内容解析链路
+  /// 收集地址，交由调用方用系统播放器 / 浏览器打开。
+  Future<List<String>> getVideoUrls(
+      ComicSource source, Chapter chapter, Comic comic) async {
+    _ensureHttp(chapter.url, '章节内容');
+    final headers = RuleParser.splitHeader(source.ruleBookContent).$2;
+    final html = await _http.getString(chapter.url,
+        headers: headers.isEmpty ? null : headers, userAgent: source.httpUserAgent);
+    final ctx = _parseContext(html);
+    final env = EvalEnv(raw: html, baseUrl: chapter.url, comic: comic);
+
+    final results = await _runRule(source.ruleBookContent, ctx, env);
+    final urls = <String>[];
+    for (final r in results) {
+      _collectContentUrls(r, chapter.url, urls);
+    }
+    final seen = <String>{};
+    return urls
+        .where((u) => seen.add(u))
+        .where((u) => _looksLikeVideoUrl(u))
+        .toList();
+  }
+
+  /// 判断地址是否像视频播放地址（含常见容器 / 流媒体扩展名）。
+  static bool _looksLikeVideoUrl(String url) {
+    final lower = url.toLowerCase();
+    // 去掉查询串再判断扩展名
+    final path = lower.split('?').first.split('#').first;
+    return path.endsWith('.mp4') ||
+        path.endsWith('.m3u8') ||
+        path.endsWith('.webm') ||
+        path.endsWith('.flv') ||
+        path.endsWith('.mkv') ||
+        path.endsWith('.mov') ||
+        path.endsWith('.avi') ||
+        path.endsWith('.ts') ||
+        lower.contains('.m3u8?') ||
+        lower.contains('.mp4?');
+  }
+
   /// 获取小说章节文本内容（用于文本源，区别于 [getContent] 的图片列表）。
   Future<String> getContentText(
       ComicSource source, Chapter chapter, Comic comic) async {

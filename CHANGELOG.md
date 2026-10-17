@@ -6,6 +6,36 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
+## [1.8.1] - 2026-10-17
+
+> 构建修复与体验增强：搜索历史、图源拖拽排序、详情页批量下载
+
+### 🐛 构建修复
+
+- 修复 Android 构建失败：`minSdk` 误改为跟随 `flutter.minSdkVersion`（Flutter 3.29 下为 21），低于 `background_downloader` 要求的 23，导致 CI 的 Manifest 合并失败
+- `minSdk` 固定为 **23**，恢复 arm64-v8a / armeabi-v7a / x86_64 三 ABI 分包（v1.8.0 仅产出单一未分架构 APK）
+
+### 🔍 搜索历史
+
+- 搜索页保存最近 **20 条**搜索关键词到本地
+- 点击历史词直接搜索，支持**单条删除**与**一键清空**
+- 历史记录仅在输入框为空且尚未搜索时展示
+
+### 🎛️ 图源排序与筛选
+
+- 图源管理页支持**长按拖拽**调整图源顺序，顺序持久化到 `ComicSource.weight`（weight 越大越靠前）
+- 搜索页与发现页沿用自定义的图源顺序
+- 图源管理页顶部新增「**全部 / 漫画 / 小说 / 视频**」类型筛选条，并显示各类型数量统计
+
+### ⬇️ 批量下载
+
+- 漫画详情页新增「**批量下载**」入口，章节多选（含全选 / 反选）后按顺序下载
+- 已下载章节在列表中显示「**已下载**」角标，避免重复下载
+
+### 🎬 视频源
+
+- 视频源章节改为调用**系统外部播放器 / 浏览器**打开（`url_launcher`），不再走图片解析流程
+
 ## [1.8.0] - 2026-10-17
 
 > 多源时代：支持小说源与视频源，书架全新改版。
@@ -406,6 +436,8 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
+[1.8.1]: https://github.com/2016YYy/comic-realm/compare/v1.8.0...v1.8.1
+[1.8.0]: https://github.com/2016YYy/comic-realm/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/2016YYy/comic-realm/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/2016YYy/comic-realm/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/2016YYy/comic-realm/compare/v1.6.2...v1.7.0

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/comic.dart';
 import '../models/source.dart';
@@ -28,6 +29,11 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
   String? _error;
   ComicSource? _source;
   late Comic _comic;
+
+  /// 批量下载进行中的状态（null 表示空闲）
+  bool _batchDownloading = false;
+  int _batchDone = 0;
+  int _batchTotal = 0;
 
   @override
   void initState() {
@@ -86,9 +92,15 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
     if (mounted) setState(() => _favorited = !_favorited);
   }
 
-  void _openChapter(int index) {
+  Future<void> _openChapter(int index) async {
     final source = _source;
     if (source == null) return;
+    // 视频源：不走图片阅读器，直接解析出播放地址交给系统播放器 / 浏览器
+    if (source.isVideo) {
+      await _playVideo(source, _chapters[index]);
+      return;
+    }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -100,6 +112,52 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
         ),
       ),
     );
+  }
+
+  /// 解析视频源章节的播放地址并用外部应用打开。
+  ///
+  /// 优先尝试系统能直接处理的 mp4 / m3u8 地址；解析不到时退化为
+  /// 在浏览器里打开章节页，让站点自己的播放器接管。
+  Future<void> _playVideo(ComicSource source, Chapter chapter) async {
+    final comicService = context.read<ComicService>();
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 16),
+            Text('正在解析播放地址…'),
+          ],
+        ),
+      ),
+    );
+    try {
+      final urls =
+          await comicService.getVideoUrls(source, chapter, _comic);
+      if (!mounted) return;
+      Navigator.pop(context); // 关闭 loading
+      final target = urls.isNotEmpty ? urls.first : chapter.url;
+      final ok = await launchUrl(
+        Uri.parse(target),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted) return;
+      if (!ok) {
+        showToast(context, '无法调起播放器，请复制地址后手动打开', isError: true);
+      } else if (urls.isEmpty) {
+        showToast(context, '未解析到直链，已在浏览器打开章节页',
+            icon: Icons.open_in_new);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      showToast(context, ComicService.friendlyError(e), isError: true);
+    }
   }
 
   @override
@@ -290,26 +348,142 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
 
   List<Widget> _buildChapterList() {
     final scheme = Theme.of(context).colorScheme;
+    final downloadService = context.watch<DownloadService>();
+    final source = _source;
     return [
-      SectionHeader(title: '章节（${_chapters.length}）'),
+      SectionHeader(
+        title: '章节（${_chapters.length}）',
+        trailing: _buildBatchDownloadButton(scheme),
+      ),
+      if (_batchDownloading)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
+                  minHeight: 5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('正在批量下载 $_batchDone / $_batchTotal',
+                  style: TextStyle(
+                      fontSize: 11, color: scheme.onSurfaceVariant)),
+            ],
+          ),
+        ),
       ..._chapters.asMap().entries.map((e) {
         final chapter = e.value;
+        final downloaded = source != null &&
+            downloadService.isChapterDownloaded(source, chapter);
         return ListTile(
           leading: Text(
             '${e.key + 1}',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
           title: Text(chapter.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: IconButton(
-            icon: const Icon(Icons.download_outlined, size: 20),
-            tooltip: '下载本话',
-            onPressed: () => _downloadChapter(chapter),
-          ),
+          subtitle: downloaded
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.offline_bolt, size: 12, color: scheme.primary),
+                    const SizedBox(width: 4),
+                    Text('已下载',
+                        style: TextStyle(fontSize: 11, color: scheme.primary)),
+                  ],
+                )
+              : null,
+          trailing: downloaded
+              ? Icon(Icons.check_circle, size: 20, color: scheme.primary)
+              : IconButton(
+                  icon: const Icon(Icons.download_outlined, size: 20),
+                  tooltip: '下载本话',
+                  onPressed: _batchDownloading
+                      ? null
+                      : () => _downloadChapter(chapter),
+                ),
           onTap: () => _openChapter(e.key),
         );
       }),
       const SizedBox(height: 24),
     ];
+  }
+
+  /// 批量下载入口按钮（视频源不支持离线缓存，隐藏）
+  Widget _buildBatchDownloadButton(ColorScheme scheme) {
+    if (_source == null || _source!.isVideo) return const SizedBox.shrink();
+    if (_batchDownloading) {
+      return TextButton(
+        onPressed: null,
+        child: Text('$_batchDone/$_batchTotal',
+            style: const TextStyle(fontSize: 12)),
+      );
+    }
+    return TextButton.icon(
+      onPressed: _pickChaptersAndDownload,
+      icon: const Icon(Icons.download_for_offline_outlined, size: 18),
+      label: const Text('批量下载', style: TextStyle(fontSize: 12)),
+    );
+  }
+
+  /// 弹出章节多选，确认后顺序下载（跳过已完成的章节）。
+  Future<void> _pickChaptersAndDownload() async {
+    final source = _source;
+    if (source == null || _chapters.isEmpty) return;
+    final downloadService = context.read<DownloadService>();
+    final pending = _chapters
+        .where((c) => !downloadService.isChapterDownloaded(source, c))
+        .toList();
+    if (pending.isEmpty) {
+      showToast(context, '全部章节都已下载',
+          icon: Icons.check_circle_outline);
+      return;
+    }
+    final selected = await showModalBottomSheet<List<Chapter>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ChapterPickerSheet(
+        chapters: pending,
+        comicName: _comic.name,
+      ),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    await _batchDownload(source, selected);
+  }
+
+  Future<void> _batchDownload(
+      ComicSource source, List<Chapter> chapters) async {
+    final downloadService = context.read<DownloadService>();
+    setState(() {
+      _batchDownloading = true;
+      _batchDone = 0;
+      _batchTotal = chapters.length;
+    });
+    var failed = 0;
+    for (final chapter in chapters) {
+      try {
+        await downloadService.downloadChapter(
+            source: source, comic: _comic, chapter: chapter);
+      } catch (_) {
+        failed++;
+      }
+      if (!mounted) return;
+      setState(() => _batchDone++);
+    }
+    if (!mounted) return;
+    setState(() => _batchDownloading = false);
+    showToast(
+      context,
+      failed == 0
+          ? '批量下载完成：${chapters.length} 个章节'
+          : '下载完成：成功 ${chapters.length - failed} 个，失败 $failed 个',
+      icon: failed == 0 ? Icons.check_circle_outline : Icons.error_outline,
+      isError: failed > 0,
+    );
   }
 
   Future<void> _downloadChapter(Chapter chapter) async {
@@ -325,5 +499,112 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
         const SnackBar(content: Text('下载完成，可在「下载」页查看')),
       );
     }
+  }
+}
+
+/// 章节多选弹窗：可全选 / 反选，确认后返回选中的章节列表。
+class _ChapterPickerSheet extends StatefulWidget {
+  final List<Chapter> chapters;
+  final String comicName;
+
+  const _ChapterPickerSheet({required this.chapters, required this.comicName});
+
+  @override
+  State<_ChapterPickerSheet> createState() => _ChapterPickerSheetState();
+}
+
+class _ChapterPickerSheetState extends State<_ChapterPickerSheet> {
+  final Set<int> _selected = <int>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected =
+        widget.chapters.isNotEmpty && _selected.length == widget.chapters.length;
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '下载 · ${widget.comicName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      if (allSelected) {
+                        _selected.clear();
+                      } else {
+                        _selected
+                          ..clear()
+                          ..addAll(List.generate(
+                              widget.chapters.length, (i) => i));
+                      }
+                    }),
+                    child: Text(allSelected ? '取消全选' : '全选'),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: scheme.outlineVariant),
+            Expanded(
+              child: ListView.builder(
+                itemCount: widget.chapters.length,
+                itemBuilder: (_, i) {
+                  final checked = _selected.contains(i);
+                  return CheckboxListTile(
+                    value: checked,
+                    onChanged: (_) => setState(() {
+                      if (checked) {
+                        _selected.remove(i);
+                      } else {
+                        _selected.add(i);
+                      }
+                    }),
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(
+                      widget.chapters[i].name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+              ),
+            ),
+            Divider(height: 1, color: scheme.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () {
+                          final list = (_selected.toList()..sort())
+                              .map((i) => widget.chapters[i])
+                              .toList();
+                          Navigator.pop(context, list);
+                        },
+                  icon: const Icon(Icons.download_outlined),
+                  label: Text(_selected.isEmpty
+                      ? '请选择要下载的章节'
+                      : '下载 ${_selected.length} 个章节'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

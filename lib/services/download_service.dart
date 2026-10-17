@@ -29,13 +29,23 @@ class DownloadService extends ChangeNotifier {
     return false;
   }
 
+  /// 生成某章节的下载任务 ID（与 [downloadChapter] 内部保持一致）。
+  static String taskIdFor(ComicSource source, Chapter chapter) =>
+      '${source.bookSourceUrl}_${chapter.url}';
+
+  /// 该章节是否已下载完成（详情页显示「已下载」角标用）。
+  bool isChapterDownloaded(ComicSource source, Chapter chapter) {
+    final task = AppDatabase.downloads.get(taskIdFor(source, chapter));
+    return task?.statusEnum == DownloadStatus.completed;
+  }
+
   /// 创建下载任务并执行
   Future<DownloadTask> downloadChapter({
     required ComicSource source,
     required Comic comic,
     required Chapter chapter,
   }) async {
-    final taskId = '${source.bookSourceUrl}_${chapter.url}';
+    final taskId = taskIdFor(source, chapter);
     // 是否已存在
     if (AppDatabase.downloads.containsKey(taskId)) {
       final existing = AppDatabase.downloads.get(taskId)!;

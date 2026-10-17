@@ -4,6 +4,7 @@ import '../core/database.dart';
 import '../models/comic.dart';
 import '../models/source.dart';
 import '../services/comic_service.dart';
+import '../services/settings_service.dart';
 import '../widgets/comic_cover.dart';
 import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
@@ -18,6 +19,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   List<Comic> _results = [];
   List<SourceError> _errors = [];
   bool _loading = false;
@@ -27,10 +29,24 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    // 输入框内容变化时刷新「历史记录 / 空态」的展示
+    _controller.addListener(_onTextChanged);
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _controller.text = widget.initialQuery!;
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
   }
 
   List<ComicSource> get _enabledSources =>
@@ -40,6 +56,9 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _search() async {
     final keyword = _controller.text.trim();
     if (keyword.isEmpty) return;
+    _focusNode.unfocus();
+    // 记录搜索历史（去重置顶，最多 20 条）
+    context.read<SettingsService>().addSearchHistory(keyword);
     setState(() {
       _loading = true;
       _results = [];
@@ -71,10 +90,27 @@ class _SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errors = [SourceError('搜索', e.toString())];
+        _errors = [SourceError('搜索', ComicService.friendlyError(e))];
         _loading = false;
       });
     }
+  }
+
+  /// 点击历史关键词：填入输入框并立即搜索
+  void _searchWith(String keyword) {
+    _controller.text = keyword;
+    _controller.selection =
+        TextSelection.collapsed(offset: keyword.length);
+    _search();
+  }
+
+  void _clearInput() {
+    _controller.clear();
+    setState(() {
+      _results = [];
+      _errors = [];
+      _searched = false;
+    });
   }
 
   @override
@@ -84,10 +120,19 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         title: TextField(
           controller: _controller,
+          focusNode: _focusNode,
           autofocus: true,
-          decoration: const InputDecoration(
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
             hintText: '搜索漫画…',
             border: InputBorder.none,
+            suffixIcon: _controller.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: '清空',
+                    onPressed: _clearInput,
+                  ),
           ),
           onSubmitted: (_) => _search(),
         ),
@@ -128,8 +173,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ],
               ),
             ),
-          if (_searched && !_loading)
-            _buildStatusBar(),
+          if (_searched && !_loading) _buildStatusBar(),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -186,11 +230,8 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildBody() {
     if (_loading) return const LoadingView(label: '正在搜索…');
     if (!_searched) {
-      return const EmptyView(
-        icon: Icons.search,
-        title: '搜索漫画',
-        subtitle: '输入关键词后点击搜索，将同时查询所有已启用图源',
-      );
+      // 未搜索时展示搜索历史；没有历史则展示引导空态
+      return _buildHistoryOrHint();
     }
     if (_results.isEmpty) {
       return EmptyView(
@@ -239,5 +280,79 @@ class _SearchScreenState extends State<SearchScreen> {
         );
       },
     );
+  }
+
+  /// 搜索历史列表：点击直接搜索，右侧可删除单条，顶部可一键清空。
+  Widget _buildHistoryOrHint() {
+    final settings = context.watch<SettingsService>();
+    final history = settings.searchHistory;
+    if (history.isEmpty) {
+      return const EmptyView(
+        icon: Icons.search,
+        title: '搜索漫画',
+        subtitle: '输入关键词后点击搜索，将同时查询所有已启用图源',
+      );
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          child: Row(
+            children: [
+              Icon(Icons.history, size: 18, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text('搜索历史',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurfaceVariant)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _confirmClearHistory(settings),
+                icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                label: const Text('清空'),
+              ),
+            ],
+          ),
+        ),
+        ...history.map((keyword) => ListTile(
+              dense: true,
+              leading: Icon(Icons.schedule,
+                  size: 18, color: scheme.onSurfaceVariant),
+              title: Text(keyword,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                tooltip: '删除这条历史',
+                onPressed: () => settings.removeSearchHistory(keyword),
+              ),
+              onTap: () => _searchWith(keyword),
+            )),
+      ],
+    );
+  }
+
+  Future<void> _confirmClearHistory(SettingsService settings) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空搜索历史'),
+        content: const Text('确定要清空全部搜索历史吗？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('清空')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      settings.clearSearchHistory();
+      if (mounted) showToast(context, '搜索历史已清空');
+    }
   }
 }
