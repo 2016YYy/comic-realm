@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      resign_tag:
+        description: '仅重建并替换该版本 tag 的 APK 资产（签名修复用），留空则按普通流程'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -26,6 +31,10 @@ jobs:
       COMIC_REALM_KEY_PASSWORD: ${{ secrets.COMIC_REALM_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # resign_tag 非空时检出该历史 tag 的源码，用于重建「同源码 + 正式签名」的包
+          ref: ${{ github.event.inputs.resign_tag != '' && github.event.inputs.resign_tag || github.ref }}
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
@@ -34,6 +43,17 @@ jobs:
         with:
           flutter-version: '3.29.3'
           channel: 'stable'
+      # 历史 tag 的源码用的是 debug 签名，这里先改写为读取 release 签名
+      - name: Patch signing config for legacy tag
+        if: github.event.inputs.resign_tag != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 补丁脚本随 workflow 所在分支一起检出；resign 时用主分支的脚本改写旧 tag 的 Gradle 配置
+          git show "origin/main:scripts/patch_legacy_signing.py" > /tmp/patch_legacy_signing.py
+          python3 /tmp/patch_legacy_signing.py
+          echo "--- 改写后的 release 构建块 ---"
+          sed -n '/buildTypes/,/^    }/p' android/app/build.gradle.kts
       - run: flutter pub get
       # 签名四要素必须齐全，否则直接失败（防止误发 debug 签名包）
       - name: Verify signing secrets are present
@@ -101,9 +121,34 @@ jobs:
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/ComicRealm-*.apk
+      # 重建历史版本时：用新签名的 APK 替换该 Release 里旧的（debug 签名的）资产
+      - name: Replace legacy release assets
+        if: github.event.inputs.resign_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.resign_tag }}"
+          echo "== 替换 $TAG 的 APK 资产 =="
+          # 先删除旧的 apk 资产，再上传新的
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name | endswith(".apk")) | .name' \
+            | while read -r name; do
+                [ -n "$name" ] || continue
+                echo "删除旧资产: $name"
+                gh release delete-asset "$TAG" "$name" --repo "$GITHUB_REPOSITORY" --yes
+              done
+          gh release upload "$TAG" build/app/outputs/flutter-apk/ComicRealm-*.apk \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          echo "== 替换完成 =="
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | "\(.name)  \(.size)"'
 
   build-windows:
     name: Build Windows
+    # 签名修复模式只需重编 Android，跳过 Windows
+    if: ${{ github.event.inputs.resign_tag == '' || github.event.inputs.resign_tag == null }}
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -128,6 +173,8 @@ jobs:
 
   build-ios:
     name: Build iOS (no-signed)
+    # 签名修复模式只需重编 Android，跳过 iOS
+    if: ${{ github.event.inputs.resign_tag == '' || github.event.inputs.resign_tag == null }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -153,6 +200,8 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [build-android, build-windows, build-ios]
+    # 仅 tag 推送时创建/更新 Release；签名修复模式不碰 Release 正文
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
