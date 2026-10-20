@@ -17,17 +17,12 @@ class DownloadService extends ChangeNotifier {
   List<DownloadTask> get tasks => AppDatabase.downloads.values.toList()
     ..sort((a, b) => b.createTime.compareTo(a.createTime));
 
-  /// 该本漫画是否有已完成的下载（用于书架「已下载」筛选）。
-  bool hasDownloadsFor(Comic comic) {
-    for (final t in AppDatabase.downloads.values) {
-      if (t.statusEnum == DownloadStatus.completed &&
-          t.comicName == comic.name &&
-          t.sourceUrl == comic.sourceUrl) {
-        return true;
-      }
-    }
-    return false;
-  }
+  /// 已完成下载的漫画键集合，键为 `sourceUrl\u0000comicName`。
+  /// 书架一次算出全部「已下载」标记，避免逐本对整个下载库重复扫描。
+  Set<String> get downloadedComicKeys => AppDatabase.downloads.values
+      .where((t) => t.statusEnum == DownloadStatus.completed)
+      .map((t) => '${t.sourceUrl}\u0000${t.comicName}')
+      .toSet();
 
   /// 生成某章节的下载任务 ID（与 [downloadChapter] 内部保持一致）。
   static String taskIdFor(ComicSource source, Chapter chapter) =>

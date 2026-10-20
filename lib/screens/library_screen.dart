@@ -17,6 +17,9 @@ import 'search_screen.dart';
 /// 书架「已下载」筛选的哨兵值（与文件夹名区分）。
 const String _kDownloadedFilter = '__downloaded__';
 
+/// 漫画对应的下载键，与 [DownloadService.downloadedComicKeys] 保持一致。
+String _downloadKey(Comic c) => '${c.sourceUrl}\u0000${c.name}';
+
 /// 书架：收藏的漫画，支持自定义文件夹、多选批量移动、
 /// 全部 / 已下载筛选、网格 / 紧凑 / 列表视图与两种排序。
 class LibraryScreen extends StatefulWidget {
@@ -38,13 +41,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final settings = context.watch<SettingsService>();
     final history = context.watch<HistoryService>();
     final downloadService = context.watch<DownloadService>();
+    // 一次算出全部「已下载」标记，避免逐本反复扫描整个下载库。
+    final downloadedKeys = downloadService.downloadedComicKeys;
     final folders = settings.folders;
     final all = _sorted(comicService.favorites, settings, history);
     final typeCounts = _typeCounts(all);
     final byType = _typeFilter.isEmpty
         ? all
         : all.where((c) => c.typeLabel == _typeFilter).toList();
-    final comics = _applyFilter(byType, downloadService);
+    final comics = _applyFilter(byType, downloadedKeys);
 
     return Scaffold(
       appBar: _selecting
@@ -104,7 +109,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         mode: settings.libraryViewMode,
                         selecting: _selecting,
                         selected: _selected,
-                        downloadService: downloadService,
+                        downloadedKeys: downloadedKeys,
                         onToggle: _toggleSelect,
                         onLongPress: _showActions,
                       ),
@@ -196,9 +201,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  List<Comic> _applyFilter(List<Comic> all, DownloadService downloadService) {
+  List<Comic> _applyFilter(List<Comic> all, Set<String> downloadedKeys) {
     if (_selectedFolder == _kDownloadedFilter) {
-      return all.where((c) => downloadService.hasDownloadsFor(c)).toList();
+      return all.where((c) => downloadedKeys.contains(_downloadKey(c))).toList();
     }
     if (_selectedFolder.isEmpty) return all;
     return all.where((c) => c.folder == _selectedFolder).toList();
@@ -578,7 +583,7 @@ class _LibraryBody extends StatelessWidget {
   final LibraryViewMode mode;
   final bool selecting;
   final Set<String> selected;
-  final DownloadService downloadService;
+  final Set<String> downloadedKeys;
   final ValueChanged<Comic> onToggle;
   final ValueChanged<Comic> onLongPress;
 
@@ -587,7 +592,7 @@ class _LibraryBody extends StatelessWidget {
     required this.mode,
     required this.selecting,
     required this.selected,
-    required this.downloadService,
+    required this.downloadedKeys,
     required this.onToggle,
     required this.onLongPress,
   });
@@ -603,7 +608,7 @@ class _LibraryBody extends StatelessWidget {
           comic: comics[i],
           selecting: selecting,
           isSelected: selected.contains(comics[i].uniqueKey),
-          downloaded: downloadService.hasDownloadsFor(comics[i]),
+          downloaded: downloadedKeys.contains(_downloadKey(comics[i])),
           onToggle: () => onToggle(comics[i]),
           onLongPress: () => onLongPress(comics[i]),
         ),
@@ -630,7 +635,7 @@ class _LibraryBody extends StatelessWidget {
             compact: compact,
             selecting: selecting,
             isSelected: selected.contains(comics[i].uniqueKey),
-            downloaded: downloadService.hasDownloadsFor(comics[i]),
+            downloaded: downloadedKeys.contains(_downloadKey(comics[i])),
             onToggle: () => onToggle(comics[i]),
             onLongPress: () => onLongPress(comics[i]),
           ),

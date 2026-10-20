@@ -179,11 +179,16 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
     if (_comics.isEmpty) {
       return const EmptyView(icon: Icons.image_search, title: '该分类暂无漫画');
     }
+    // 收藏状态整个网格只订阅一次，避免每个 _ComicTile 各自 watch 造成
+    // 任何一处收藏变化都重建整页。
+    final favKeys = context.watch<ComicService>().favoriteKeys;
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: GridView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(12),
+        // 预渲染视口外一段，减少快速滑动时的白块。
+        cacheExtent: 500,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           childAspectRatio: 0.62,
@@ -195,7 +200,11 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
           if (index == _comics.length) {
             return _buildLoadMore();
           }
-          return _ComicTile(comic: _comics[index]);
+          final comic = _comics[index];
+          return _ComicTile(
+            comic: comic,
+            favorited: favKeys.contains(comic.uniqueKey),
+          );
         },
       ),
     );
@@ -236,6 +245,7 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
         ],
       ),
     );
+    controller.dispose();
     if (keyword == null || keyword.trim().isEmpty || !mounted) return;
     _doSourceSearch(keyword.trim());
   }
@@ -272,13 +282,15 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
 
 class _ComicTile extends StatelessWidget {
   final Comic comic;
-  const _ComicTile({required this.comic});
+
+  /// 是否已加入书架。由父级一次性算好传入，避免每个网格项各自订阅
+  /// [ComicService]。
+  final bool favorited;
+
+  const _ComicTile({required this.comic, required this.favorited});
 
   @override
   Widget build(BuildContext context) {
-    final comicService = context.watch<ComicService>();
-    final favorited = comicService.isFavoriteComic(comic);
-
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () {

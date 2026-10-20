@@ -76,9 +76,21 @@ class _SearchScreenState extends State<SearchScreen> {
           _loading = false;
         });
       } else {
-        final source = _enabledSources.firstWhere(
+        final sources = _enabledSources;
+        // 选中的图源可能在设置里被删除/停用，回退前先保证列表非空，
+        // 否则 firstWhere 的 orElse 会因取 first 抛 StateError。
+        if (sources.isEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _results = [];
+            _errors = [SourceError('搜索', '没有可用的图源，请先在「图源」页导入并启用')];
+            _loading = false;
+          });
+          return;
+        }
+        final source = sources.firstWhere(
           (s) => s.bookSourceUrl == _sourceFilter,
-          orElse: () => _enabledSources.first,
+          orElse: () => sources.first,
         );
         final list = await service.searchBySource(source, keyword);
         if (!mounted) return;
@@ -240,11 +252,14 @@ class _SearchScreenState extends State<SearchScreen> {
         subtitle: _errors.isNotEmpty ? '已启用图源均搜索失败，请展开上方查看原因' : '换个关键词再试试',
       );
     }
+    // 收藏状态整个列表只订阅一次、只查询一次 Hive，避免每个 item 各自
+    // context.watch 导致任何一处收藏变化都重建整列表。
+    final favKeys = context.watch<ComicService>().favoriteKeys;
     return ListView.builder(
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final comic = _results[index];
-        final isFav = context.watch<ComicService>().isFavoriteComic(comic);
+        final isFav = favKeys.contains(comic.uniqueKey);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: ComicCover(url: comic.coverUrl, width: 50, height: 70, radius: 6),

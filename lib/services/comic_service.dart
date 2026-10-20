@@ -148,6 +148,11 @@ class ComicService extends ChangeNotifier {
   bool isFavoriteComic(Comic comic) =>
       AppDatabase.favorites.containsKey(comic.uniqueKey);
 
+  /// 全部收藏的唯一键集合。列表页一次性读取后传给各列表项，
+  /// 避免在每个 item 里反复查询 Hive（长列表滚动时的主要卡顿来源）。
+  Set<String> get favoriteKeys =>
+      AppDatabase.favorites.keys.whereType<String>().toSet();
+
   /// 兼容旧调用：仅当 noteUrl 非空时可用；noteUrl 为空的漫画请改用
   /// [isFavoriteComic]。
   bool isFavorite(String noteUrl, {String sourceUrl = ''}) {

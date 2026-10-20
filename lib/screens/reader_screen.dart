@@ -561,6 +561,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (continuous) {
       return ListView.builder(
         itemCount: _images.length,
+        // 预渲染视口外一段距离，减少快速上下拖动时的白屏与掉帧。
+        cacheExtent: 1200,
         itemBuilder: (_, i) => _ReaderImage(url: _images[i]),
       );
     }
@@ -601,7 +603,9 @@ class _ReaderImage extends StatelessWidget {
 
   const _ReaderImage({required this.url});
 
-  bool get _isLocal => File(url).existsSync();
+  /// 网络地址直接判定为非本地，避免每次 build 都对 http(s) 地址做一次
+  /// 同步文件探测（同步 IO 会阻塞 UI 线程，长图列表滚动时尤其明显）。
+  bool get _isLocal => !url.startsWith('http') && File(url).existsSync();
 
   @override
   Widget build(BuildContext context) {
@@ -639,7 +643,11 @@ class _ReaderImage extends StatelessWidget {
 }
 
 /// 章节目录弹窗：列出全部章节，支持正序/倒序切换与章节号跳转。
-class _ChapterListSheet extends StatelessWidget {
+///
+/// 用 StatefulWidget 持有 [ScrollController]，随弹窗销毁一起释放（此前在
+/// build 内新建且从不 dispose，反复打开目录会持续泄漏）。倒序状态改为弹窗
+/// 内部维护，点击后立即刷新列表（此前只改父页状态，弹窗本身不会重建）。
+class _ChapterListSheet extends StatefulWidget {
   final List<Chapter> chapters;
   final int currentIndex;
   final bool reversed;
@@ -655,21 +663,49 @@ class _ChapterListSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final indices = List<int>.generate(chapters.length, (i) => i);
-    final display = reversed ? indices.reversed.toList() : indices;
-    final controller = ScrollController(
-      initialScrollOffset: 0,
-      keepScrollOffset: true,
-    );
-    // 立即定位到当前章节
+  State<_ChapterListSheet> createState() => _ChapterListSheetState();
+}
+
+class _ChapterListSheetState extends State<_ChapterListSheet> {
+  final ScrollController _controller = ScrollController();
+  late bool _reversed = widget.reversed;
+
+  List<int> get _display {
+    final indices = List<int>.generate(widget.chapters.length, (i) => i);
+    return _reversed ? indices.reversed.toList() : indices;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 打开目录后立即定位到当前章节
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final pos = display.indexOf(currentIndex);
-      if (pos > 0 && controller.hasClients) {
-        controller.jumpTo((pos * 48.0).clamp(0, controller.position.maxScrollExtent));
+      if (!mounted || !_controller.hasClients) return;
+      final pos = _display.indexOf(widget.currentIndex);
+      if (pos > 0) {
+        _controller.jumpTo(
+          (pos * 48.0).clamp(0, _controller.position.maxScrollExtent),
+        );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleReversed() {
+    setState(() => _reversed = !_reversed);
+    widget.onToggleReversed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final chapters = widget.chapters;
+    final display = _display;
     return SafeArea(
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
@@ -682,7 +718,7 @@ class _ChapterListSheet extends StatelessWidget {
                   // 章节号跳转
                   Expanded(
                     child: TextField(
-                      controller: jumpCtrl,
+                      controller: widget.jumpCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         isDense: true,
@@ -704,9 +740,9 @@ class _ChapterListSheet extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filledTonal(
-                    tooltip: reversed ? '当前：倒序' : '当前：正序',
-                    onPressed: onToggleReversed,
-                    icon: Icon(reversed
+                    tooltip: _reversed ? '当前：倒序' : '当前：正序',
+                    onPressed: _toggleReversed,
+                    icon: Icon(_reversed
                         ? Icons.arrow_upward
                         : Icons.arrow_downward),
                   ),
@@ -715,12 +751,12 @@ class _ChapterListSheet extends StatelessWidget {
             ),
             Expanded(
               child: ListView.builder(
-                controller: controller,
+                controller: _controller,
                 itemCount: display.length,
                 itemExtent: 48,
                 itemBuilder: (_, pos) {
                   final i = display[pos];
-                  final active = i == currentIndex;
+                  final active = i == widget.currentIndex;
                   return ListTile(
                     dense: true,
                     selected: active,
