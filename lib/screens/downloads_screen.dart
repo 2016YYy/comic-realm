@@ -170,6 +170,7 @@ class _DownloadTile extends StatelessWidget {
     if (task.savePath.isEmpty) return;
     final dir = Directory(task.savePath);
     if (!await dir.exists()) {
+      if (!context.mounted) return;
       showToast(context, '本地缓存已丢失，请重新下载', isError: true);
       return;
     }

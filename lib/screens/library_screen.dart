@@ -131,7 +131,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return counts;
   }
 
-  AppBar _buildDefaultAppBar(List<Comic> comics) {
+  PreferredSizeWidget _buildDefaultAppBar(List<Comic> comics) {
     return GlassAppBar(
       title: Text(comics.isEmpty ? '书架' : '书架 · ${comics.length}'),
       actions: [
@@ -155,7 +155,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  AppBar _buildSelectionAppBar(List<Comic> comics) {
+  PreferredSizeWidget _buildSelectionAppBar(List<Comic> comics) {
     final allSelected = comics.isNotEmpty && _selected.length == comics.length;
     return GlassAppBar(
       leading: IconButton(
@@ -763,7 +763,7 @@ class _LibraryListTile extends StatelessWidget {
               children: [
                 ComicCover(url: comic.coverUrl, width: 56, height: 78),
                 if (downloaded)
-                  Positioned(left: -3, top: -3, child: _DownloadedBadge(downloaded: true)),
+                  const Positioned(left: -3, top: -3, child: _DownloadedBadge(downloaded: true)),
                 if (!comic.isComicItem)
                   Positioned(left: 0, bottom: 0, child: _TypeTag(label: comic.typeLabel)),
               ],

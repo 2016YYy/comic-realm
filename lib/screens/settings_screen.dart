@@ -43,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final historyCount = context.watch<HistoryService>().entries.length;
 
     return Scaffold(
-      appBar: GlassAppBar(title: const Text('设置')),
+      appBar: const GlassAppBar(title: Text('设置')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [

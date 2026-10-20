@@ -215,7 +215,7 @@ class _ErrorViewState extends State<ErrorView> {
                               widget.message, widget.detail),
                         ),
                       );
-                      if (mounted) {
+                      if (context.mounted) {
                         showToast(context, '错误信息已复制到剪贴板',
                             icon: Icons.copy);
                       }
