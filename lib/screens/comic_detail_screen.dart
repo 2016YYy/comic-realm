@@ -9,6 +9,7 @@ import '../services/download_service.dart';
 import '../services/history_service.dart';
 import '../services/source_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
@@ -163,7 +164,7 @@ class _ComicDetailScreenState extends State<ComicDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Text(_comic.name),
         actions: [
           IconButton(

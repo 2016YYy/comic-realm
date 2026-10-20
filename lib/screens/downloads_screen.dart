@@ -8,6 +8,7 @@ import '../models/comic.dart';
 import '../models/download.dart';
 import '../services/download_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'reader_screen.dart';
 
@@ -54,7 +55,7 @@ class DownloadsScreen extends StatelessWidget {
     final tasks = downloadService.tasks;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Text(tasks.isEmpty ? '下载' : '下载 · ${tasks.length}'),
       ),
       body: tasks.isEmpty

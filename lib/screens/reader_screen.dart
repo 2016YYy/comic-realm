@@ -11,6 +11,7 @@ import '../services/comic_service.dart';
 import '../services/history_service.dart';
 import '../services/settings_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 
 /// 阅读器：竖向连续滚动（条漫）或横向翻页，均支持上一话 / 下一话切换。
@@ -346,46 +347,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _chromeVisible
-          ? AppBar(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chapterName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  if (chapterCount > 0)
-                    Text(
-                      '${_currentIndex + 1} / $chapterCount${_isOffline ? ' · 离线' : ''}',
-                      style: const TextStyle(fontSize: 11, color: Colors.white70),
-                    ),
-                ],
-              ),
-              actions: [
-                if (!_isOffline && chapterCount > 0) ...[
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous),
-                    onPressed: _currentIndex > 0 ? _prev : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next),
-                    onPressed: _currentIndex < chapterCount - 1 ? _next : null,
-                  ),
-                ],
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  tooltip: '阅读设置',
-                  onPressed: _showReaderSettings,
-                ),
-              ],
-            )
-          : null,
-      bottomNavigationBar: _chromeVisible ? _buildBottomBar() : null,
+      // 顶 / 底菜单改为悬浮在画面之上，毛玻璃可实时模糊漫画内容
       body: Stack(
         children: [
           _buildBody(continuous),
@@ -430,17 +392,103 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ],
             ),
           ),
+          // 顶栏 / 底栏悬浮于画面之上（放在最上层，优先响应点击）
+          if (_chromeVisible) ...[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle.light,
+                child: _buildTopBar(chapterName, chapterCount),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildBottomBar(),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  /// 顶部悬浮栏：毛玻璃顶栏，展示章节名与上一话 / 下一话 / 设置。
+  Widget _buildTopBar(String chapterName, int chapterCount) {
+    final glass = context.watch<SettingsService>().glassEffect;
+    final inner = Material(
+      type: MaterialType.transparency,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                tooltip: '返回',
+                onPressed: () => Navigator.maybePop(context),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      chapterName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, color: Colors.white),
+                    ),
+                    if (chapterCount > 0)
+                      Text(
+                        '${_currentIndex + 1} / $chapterCount${_isOffline ? ' · 离线' : ''}',
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.white70),
+                      ),
+                  ],
+                ),
+              ),
+              if (!_isOffline && chapterCount > 0) ...[
+                IconButton(
+                  icon: const Icon(Icons.skip_previous, color: Colors.white),
+                  onPressed: _currentIndex > 0 ? _prev : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next, color: Colors.white),
+                  onPressed: _currentIndex < chapterCount - 1 ? _next : null,
+                ),
+              ],
+              IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                tooltip: '阅读设置',
+                onPressed: _showReaderSettings,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!glass) {
+      return ColoredBox(color: Colors.black, child: inner);
+    }
+    return GlassBlur(
+      blur: 22,
+      border: false,
+      tint: Colors.black.withValues(alpha: 0.42),
+      child: inner,
     );
   }
 
   /// 底部操作栏：上一话 / 目录 / 阅读模式 / 亮度 / 设置 / 下一话（与顶部菜单一同显示）。
   Widget _buildBottomBar() {
     final chapterCount = widget.chapters?.length ?? 0;
+    final glass = context.watch<SettingsService>().glassEffect;
     final style = TextButton.styleFrom(foregroundColor: Colors.white);
-    return Material(
-      color: Colors.black,
+    final bar = Material(
+      color: glass ? Colors.transparent : Colors.black,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -538,6 +586,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
         ),
       ),
+    );
+    if (!glass) return bar;
+    return GlassBlur(
+      blur: 22,
+      border: false,
+      tint: Colors.black.withValues(alpha: 0.42),
+      child: bar,
     );
   }
 

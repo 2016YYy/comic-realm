@@ -12,6 +12,7 @@ import '../services/comic_service.dart';
 import '../services/history_service.dart';
 import '../services/settings_service.dart';
 import '../services/source_service.dart';
+import '../widgets/glass.dart';
 import 'about_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -42,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final historyCount = context.watch<HistoryService>().entries.length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: GlassAppBar(title: const Text('设置')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
@@ -50,6 +51,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _SectionTitle('外观'),
           _ThemeModeTile(settings: settings),
           _SeedColorTile(settings: settings),
+          SwitchListTile(
+            secondary: const Icon(Icons.blur_on),
+            title: const Text('毛玻璃效果'),
+            subtitle: const Text('顶栏 / 底栏使用液态玻璃模糊；低端设备可关闭以更流畅'),
+            value: settings.glassEffect,
+            onChanged: (v) => settings.glassEffect = v,
+          ),
 
           // ---------- 阅读 ----------
           const _SectionTitle('阅读'),

@@ -10,6 +10,7 @@ import '../services/history_service.dart';
 import '../services/settings_service.dart';
 import '../services/source_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 import 'search_screen.dart';
@@ -131,7 +132,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   AppBar _buildDefaultAppBar(List<Comic> comics) {
-    return AppBar(
+    return GlassAppBar(
       title: Text(comics.isEmpty ? '书架' : '书架 · ${comics.length}'),
       actions: [
         IconButton(
@@ -156,7 +157,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   AppBar _buildSelectionAppBar(List<Comic> comics) {
     final allSelected = comics.isNotEmpty && _selected.length == comics.length;
-    return AppBar(
+    return GlassAppBar(
       leading: IconButton(
         icon: const Icon(Icons.close),
         tooltip: '退出多选',

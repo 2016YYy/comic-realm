@@ -49,9 +49,11 @@ class AppTheme {
         surfaceContainerHighest:
             isDark ? const Color(0xFF2C2C37) : scheme.surfaceContainerHighest,
       ),
-      scaffoldBackgroundColor: surface,
+      // 透明底色：露出 [AppBackdrop] 的装饰渐变，供毛玻璃层模糊，
+      // 同时保证关闭毛玻璃时仍是统一的柔和背景。
+      scaffoldBackgroundColor: Colors.transparent,
       appBarTheme: AppBarTheme(
-        backgroundColor: surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,

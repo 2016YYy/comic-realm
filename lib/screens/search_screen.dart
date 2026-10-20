@@ -6,6 +6,7 @@ import '../models/source.dart';
 import '../services/comic_service.dart';
 import '../services/settings_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 
@@ -129,7 +130,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final sources = _enabledSources;
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: TextField(
           controller: _controller,
           focusNode: _focusNode,

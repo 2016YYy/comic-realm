@@ -6,6 +6,7 @@ import '../models/source.dart';
 import '../services/history_service.dart';
 import '../services/source_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 import 'search_screen.dart';
@@ -22,7 +23,7 @@ class DiscoverScreen extends StatelessWidget {
     final history = context.watch<HistoryService>().entries;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: const Text('发现'),
         actions: [
           IconButton(

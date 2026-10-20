@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/source_service.dart';
 import '../models/source.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'source_import_screen.dart';
 import 'source_discover_screen.dart';
@@ -37,7 +38,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
     final canReorder = _typeFilter.isEmpty && sources.length > 1;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: const Text('图源管理'),
         actions: [
           if (allSources.isNotEmpty)

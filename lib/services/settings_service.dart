@@ -45,6 +45,7 @@ class SettingsService extends ChangeNotifier {
   static const _kDisclaimerAccepted = 'disclaimerAccepted';
   static const _kFolders = 'libraryFolders';
   static const _kSearchHistory = 'searchHistory';
+  static const _kGlassEffect = 'glassEffect';
 
   Box get _box => AppDatabase.settings;
 
@@ -146,6 +147,16 @@ class SettingsService extends ChangeNotifier {
 
   set includePrerelease(bool value) {
     _box.put(_kIncludePrerelease, value);
+    notifyListeners();
+  }
+
+  // ---------------- 外观 ----------------
+
+  /// 是否启用毛玻璃（Liquid Glass）效果。默认开启；低端设备可关闭以换取更流畅。
+  bool get glassEffect => _box.get(_kGlassEffect) as bool? ?? true;
+
+  set glassEffect(bool value) {
+    _box.put(_kGlassEffect, value);
     notifyListeners();
   }
 

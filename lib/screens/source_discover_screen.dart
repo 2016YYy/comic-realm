@@ -4,6 +4,7 @@ import '../models/comic.dart';
 import '../models/source.dart';
 import '../services/comic_service.dart';
 import '../widgets/comic_cover.dart';
+import '../widgets/glass.dart';
 import '../widgets/state_views.dart';
 import 'comic_detail_screen.dart';
 
@@ -116,7 +117,7 @@ class _SourceDiscoverScreenState extends State<SourceDiscoverScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Text(widget.source.bookSourceName),
         actions: [
           IconButton(

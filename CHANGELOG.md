@@ -6,6 +6,26 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
+## [1.9.0] - 2026-10-20
+
+> 新增 Liquid Glass 毛玻璃视觉体系：全局装饰背景 + 顶栏 / 底栏 / 阅读器悬浮栏真实模糊
+
+### ✨ 新特性
+
+- 全局「液态玻璃」视觉：应用底层铺设随主题色变化的柔和渐变背景（含两团模糊光斑）
+- 顶栏、底部导航栏改用 `BackdropFilter` 真实毛玻璃，模糊其背后的画面
+- 阅读器顶栏 / 底栏改为**悬浮在漫画画面之上**，玻璃实时模糊漫画内容，沉浸感更强
+- 设置新增「毛玻璃效果」开关（默认开启），低端设备可关闭以换取更流畅
+
+### 🐛 问题修复
+
+- 修复主框架更新监听未释放：`MainShell` 长时间驻留时泄漏 `UpdateService` 的监听器
+
+### 🚀 流畅度
+
+- 装饰背景用 `RepaintBoundary` 缓存；模糊只用于静态或小面积的悬浮层，
+  不对滚动内容逐帧模糊，避免掉帧
+
 ## [1.8.3] - 2026-10-20
 
 > 阅读器与长列表流畅度优化，修复目录弹窗与状态刷新的若干问题
@@ -479,6 +499,7 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
+[1.9.0]: https://github.com/2016YYy/comic-realm/compare/v1.8.3...v1.9.0
 [1.8.3]: https://github.com/2016YYy/comic-realm/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/2016YYy/comic-realm/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/2016YYy/comic-realm/compare/v1.8.0...v1.8.1

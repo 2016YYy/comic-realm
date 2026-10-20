@@ -15,6 +15,8 @@ import 'services/history_service.dart';
 import 'services/settings_service.dart';
 import 'services/source_service.dart';
 import 'services/update_service.dart';
+import 'widgets/app_backdrop.dart';
+import 'widgets/glass.dart';
 import 'widgets/state_views.dart';
 import 'widgets/update_dialog.dart';
 
@@ -53,6 +55,9 @@ class ComicRealmApp extends StatelessWidget {
             themeMode: settings.themeMode,
             theme: AppTheme.theme(Brightness.light, settings.seedColor),
             darkTheme: AppTheme.theme(Brightness.dark, settings.seedColor),
+            // 全局装饰背景：毛玻璃层模糊它，得到统一、流畅的玻璃观感
+            builder: (context, child) =>
+                AppBackdrop(child: child ?? const SizedBox.shrink()),
             // 首次启动必须先同意免责声明，未同意前不进入主界面
             home: settings.disclaimerAccepted
                 ? const MainShell()
@@ -78,6 +83,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _index = 0;
   bool _autoCheckStarted = false;
   bool _updateDialogShown = false;
+  UpdateService? _updateService;
+  VoidCallback? _updateListener;
 
   static const _pages = <Widget>[
     LibraryScreen(),
@@ -99,6 +106,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    // 释放更新监听，避免长时间驻留的 Shell 泄漏监听器
+    final listener = _updateListener;
+    if (listener != null) {
+      _updateService?.removeListener(listener);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -106,14 +118,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   /// 监听更新下载状态：下载完成（ready）时若弹窗已打开则自动刷新为安装态
   void _listenUpdatePhase() {
     final updateService = context.read<UpdateService>();
-    updateService.addListener(() {
+    _updateService = updateService;
+    void listener() {
       if (!mounted) return;
       // 进入 ready 状态时若弹窗未显示，则自动弹出安装弹窗
       if (updateService.phase == UpdatePhase.ready && !_updateDialogShown) {
         _updateDialogShown = true;
         showUpdateDialog(context).then((_) => _updateDialogShown = false);
       }
-    });
+    }
+
+    _updateListener = listener;
+    updateService.addListener(listener);
   }
 
   @override
@@ -156,26 +172,36 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      // 自定义底部导航：点击时图标与文字同步变色，并带缩放/颜色过渡动画
-      bottomNavigationBar: Material(
-        color: scheme.surface,
-        elevation: 2,
-        child: SafeArea(
-          child: Row(
-            children: List.generate(_navItems.length, (i) {
-              return _AnimatedNavItem(
-                item: _navItems[i],
-                selected: _index == i,
-                onTap: () => setState(() => _index = i),
-                badge: i == 4 ? context.watch<UpdateService>().hasUpdate : false,
-              );
-            }),
-          ),
-        ),
-      ),
+      // 自定义底部导航：毛玻璃底栏，图标与文字随选中态同步变色
+      bottomNavigationBar: _buildNavBar(context),
+    );
+  }
+
+  /// 底部导航栏：启用毛玻璃时对背景做真实模糊，关闭时回退为纯色。
+  Widget _buildNavBar(BuildContext context) {
+    final row = Row(
+      children: List.generate(_navItems.length, (i) {
+        return _AnimatedNavItem(
+          item: _navItems[i],
+          selected: _index == i,
+          onTap: () => setState(() => _index = i),
+          badge: i == 4 ? context.watch<UpdateService>().hasUpdate : false,
+        );
+      }),
+    );
+    if (context.watch<SettingsService>().glassEffect) {
+      return GlassBlur(
+        blur: 26,
+        border: false,
+        tint: glassTint(context, darkAlpha: 0.6, lightAlpha: 0.72),
+        child: SafeArea(top: false, child: row),
+      );
+    }
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(child: row),
     );
   }
 }
