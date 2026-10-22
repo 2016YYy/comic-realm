@@ -52,3 +52,11 @@ android/app/build/
 # 注意：android/app/release-keystore.jks 为 CI 构建所需，历史上已入库，
 # 这里仅排除本地的备份副本目录，避免口令与证书被额外扩散。
 keys-package/
+
+# 敏感信息扫描工具（gitleaks 二进制约 21MB，各平台自行下载）
+tools/bin/gitleaks
+tools/bin/gitleaks.exe
+tools/bin/*.zip
+
+# 扫描报告
+gitleaks-report.json

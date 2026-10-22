@@ -19,8 +19,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 发版前强制扫描：任何泄露都会让后续构建无法开始
+  secret-scan:
+    name: Secret Scan (pre-release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER="8.30.1"
+          mkdir -p tools/bin
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz -C tools/bin gitleaks
+          chmod +x tools/bin/gitleaks
+          tools/bin/gitleaks version
+      - name: Run secret scan
+        shell: bash
+        run: |
+          # 有泄露时脚本 exit 1，本 job 失败，构建不会继续
+          bash scripts/secret-scan.sh
+
   build-android:
     name: Build Android APK
+    needs: [secret-scan]
     runs-on: ubuntu-latest
     env:
       # 签名配置由 GitHub Secrets 以环境变量注入，仓库内不再保存密钥与口令。

@@ -1,0 +1,48 @@
+# gitleaks 配置：comic-realm 仓库敏感信息扫描
+#
+# 背景：本仓库历史提交（v1.0.4 ~ v1.8.1）曾包含 Android 签名 keystore 与明文口令，
+#       已在 v1.8.2 移出仓库，并在 SIGNING.md「已知历史遗留问题」中完整披露。
+#
+# 除官方默认规则外，本仓库额外补充两类规则：
+#   1. Gradle 签名块中的明文口令（keytool / sign key）
+#   2. 任何 *.jks / *.keystore 二进制被提交
+
+title = "comic-realm secret scan"
+
+[extend]
+useDefault = true
+
+# ── 自定义规则 ─────────────────────────────────────────────
+
+[[rules]]
+id = "android-signing-password"
+description = "Android/Gradle 签名口令明文"
+regex = '''(?i)(storePassword|keyPassword)\s*=\s*["\']([^"\']{4,})["\']'''
+secretGroup = 2
+keywords = ["storepassword", "keypassword"]
+
+[[rules]]
+id = "android-keystore-inline"
+description = "Gradle 中内联的 keystore 口令"
+regex = '''(?i)storePassword\s*[:=]\s*["\'][^"\']+["\']'''
+keywords = ["storepassword"]
+
+# ── 允许项：已披露的历史问题 ───────────────────────────────
+
+[allowlist]
+description = "已披露的历史项 + 构建产物目录（非源码，避免误报）"
+
+# 历史提交里二进制 keystore 的路径 + 构建产物目录
+paths = [
+  '''android/app/release-keystore.jks''',
+  '''(^|/)\.dart_tool/''',
+  '''(^|/)build/''',
+  '''(^|/)\.gradle/''',
+  '''(^|/)tools/bin/''',
+]
+
+# 旧签名口令：仅出现在 CHANGELOG / SIGNING.md 的问题记录里，不是可复用凭证
+regexTarget = "line"
+regexes = [
+  '''comicrealm2026''',
+]
