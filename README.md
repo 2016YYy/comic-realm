@@ -149,8 +149,8 @@ Android 发布包的签名信息**不放在仓库里**，由 CI 的 **GitHub Sec
 |----|-----|
 | Subject | `CN=ComicRealm, OU=Dev, O=ComicRealm, L=Shanghai, ST=Shanghai, C=CN` |
 | Key Alias | `comicrealm` |
-| SHA-1 | `3B:F2:48:07:EB:01:F0:EB:54:A1:5A:02:8C:63:2A:98:B0:E4:BB:DB` |
-| SHA-256 | `31:13:BE:CE:E0:2D:74:ED:04:78:F9:49:4D:7E:06:72:8B:EE:4E:20:0E:37:44:41:10:05:C1:DA:05:0D:66:A8` |
+| SHA-1 | `E4:8F:25:13:59:C9:8D:93:80:98:F8:F5:1E:9F:1E:CB:6C:03:3E:7E` |
+| SHA-256 | `FD:FB:16:F1:7F:16:CE:4F:DD:30:03:7B:25:2C:6D:E4:44:18:13:7F:15:6B:A9:77:29:4B:31:33:1A:2E:8C:BC` |
 
 > [!IMPORTANT]
 > **1.0.0 ~ 1.0.3** 的 APK 使用 debug 签名，与正式证书不同。从这些版本升级到 **1.0.4 及以上**必须先卸载旧版本，否则会因签名冲突安装失败。1.0.4 起的版本可正常覆盖升级。

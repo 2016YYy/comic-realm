@@ -6,6 +6,34 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本小节的首行可用 `> 一句话概括` 作为发布说明的副标题。
 
+## [2.0.0] - 2026-10-22
+
+> 换发第 2 代签名证书（旧证书泄露作废），全链路接入敏感信息扫描
+
+> [!WARNING]
+> **破坏性变更：签名证书更换，无法覆盖升级。**
+> 从 v1.9.0 及更早版本升级到 v2.0.0 时，Android 会因签名冲突拒绝安装。
+> 请先**卸载旧版本**再安装 v2.0.0，卸载会清除本地数据（登录状态、阅读记录、下载缓存）。
+
+### 🔐 安全
+
+- **换发签名证书**：第 1 代 keystore 与明文口令曾在 v1.0.4 ~ v1.8.1 共 16 个版本的公开提交中暴露，
+  任何人可签发与官方同签名的 APK；现已生成第 2 代证书并从 v2.0.0 起启用，旧证书作废
+  - 新证书 SHA-1：`E4:8F:25:13:59:C9:8D:93:80:98:F8:F5:1E:9F:1E:CB:6C:03:3E:7E`
+  - 详见 [`SIGNING.md`](SIGNING.md) 与 [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)
+- 仓库内不再保存任何口令明文，统一由 GitHub Secrets 注入
+- 接入 **gitleaks 敏感信息扫描**，覆盖三个环节：
+  - 本地提交：`.githooks/pre-commit` 扫描暂存内容
+  - PR / push：`.github/workflows/secret-scan.yml`
+  - 发版构建：`build.yml` 的 `secret-scan` 前置关卡，不通过则不构建
+- 修复 gitleaks 配置文件名导致的**假阴性**：配置须为 `.gitleaks.toml`（带点）才会被自动加载，
+  否则退回内置默认规则、漏掉 Android 签名口令
+
+### 📝 说明
+
+- 新增 `docs/SECURITY-AUDIT.md`：23 个版本的逐版本凭证审计记录
+- 新增 `AGENTS.md`：约定任何发版动作前必须先执行敏感信息扫描
+
 ## [1.9.0] - 2026-10-20
 
 > 新增 Liquid Glass 毛玻璃视觉体系：全局装饰背景 + 顶栏 / 底栏 / 阅读器悬浮栏真实模糊
@@ -499,6 +527,7 @@
 - 应用内更新（GitHub Releases）
 - Android / iOS / Windows 三平台自动构建与发布
 
+[2.0.0]: https://github.com/2016YYy/comic-realm/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/2016YYy/comic-realm/compare/v1.8.3...v1.9.0
 [1.8.3]: https://github.com/2016YYy/comic-realm/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/2016YYy/comic-realm/compare/v1.8.1...v1.8.2
