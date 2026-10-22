@@ -40,7 +40,7 @@ if (-not $exe) {
 }
 
 # ── 选择配置文件 ───────────────────────────────────────────
-$config = if ($Strict) { "gitleaks-strict.toml" } else { "gitleaks.toml" }
+$config = if ($Strict) { "gitleaks-strict.toml" } else { ".gitleaks.toml" }
 if (-not (Test-Path $config)) { $config = "" }
 $configArgs = if ($config) { @("--config", (Join-Path $repoRoot $config)) } else { @() }
 

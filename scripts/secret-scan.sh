@@ -39,7 +39,7 @@ if [ -z "$EXE" ]; then
 fi
 
 # ── 选择配置 ───────────────────────────────────────────────
-CONFIG="gitleaks.toml"
+CONFIG=".gitleaks.toml"
 [ "$STRICT" -eq 1 ] && CONFIG="gitleaks-strict.toml"
 CFG_ARGS=()
 [ -f "$CONFIG" ] && CFG_ARGS=(--config "$REPO_ROOT/$CONFIG")

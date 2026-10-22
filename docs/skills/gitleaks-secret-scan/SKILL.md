@@ -49,19 +49,19 @@ docker pull zricethezav/gitleaks # Docker 通用
 ### 1. 扫描工作区（不含历史，最快）
 
 ```bash
-gitleaks dir . --config gitleaks.toml -v
+gitleaks dir . -v
 ```
 
 ### 2. 扫描完整 Git 历史（发版前用这个）
 
 ```bash
-gitleaks detect --config gitleaks.toml --source . -v
+gitleaks git . -v
 ```
 
 ### 3. 生成 JSON 报告
 
 ```bash
-gitleaks detect --config gitleaks.toml --source . --report-path gitleaks-report.json --report-format json --redact
+gitleaks git . --report-path gitleaks-report.json --report-format json --redact
 ```
 
 ## 三、退出码含义
@@ -92,7 +92,7 @@ bash scripts/secret-scan.sh
 ## 六、忽略与白名单
 
 - **单行忽略**：代码行尾加 `# gitleaks:allow`
-- **自定义忽略**：编辑 `gitleaks.toml` 的 `[allowlist]` 段
+- **自定义忽略**：编辑 `.gitleaks.toml` 的 `[allowlist]` 段
 - **按指纹忽略**：把输出的 `Fingerprint` 写进 `.gitleaksignore`（每行一个）
 
 > [!WARNING]
@@ -112,6 +112,15 @@ bash scripts/secret-scan.sh
 
 **Q: 扫描很慢？** 只扫工作区用 `gitleaks dir .`；扫历史才用 `detect`。
 
-**Q: 误报太多？** 在 `gitleaks.toml` 里加精确的 `regexes` / `paths` 白名单，不要直接关规则。
+**Q: 误报太多？** 在 `.gitleaks.toml` 里加精确的 `regexes` / `paths` 白名单，不要直接关规则。
 
 **Q: keystore 等二进制扫不到？** gitleaks 只扫文本。二进制凭证（.jks/.keystore/.p12）靠 `.gitignore` 与 CI 校验拦截，本仓库已在 `android/.gitignore` 忽略所有 `*.jks`。
+
+> [!IMPORTANT]
+> **两个必须知道的坑（已在 2026-10-22 实际踩到并修正）**
+>
+> 1. **配置文件名必须是 `.gitleaks.toml`（带点）**。gitleaks 只自动识别这个带点的名字；
+>    命名成 `gitleaks.toml` 不会被加载，裸跑会退回内置默认规则，而内置规则**没有 Android 签名口令这一类**，
+>    结果就是「报告 0 泄露」的假阴性。本项目已改用 `.gitleaks.toml`。
+> 2. **gitleaks 8.30 起已移除 `detect` / `protect` 命令**，只剩 `dir` 与 `git`。
+>    旧写法 `gitleaks detect --source .` 会直接报错；查暂存区用 `gitleaks git --staged`。

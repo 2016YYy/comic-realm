@@ -1,0 +1,55 @@
+# gitleaks 配置：comic-realm 仓库敏感信息扫描
+#
+# ⚠️ 文件名必须是 .gitleaks.toml（带点）—— 这是 gitleaks 在仓库根目录自动识别的唯一名字。
+#    命名为 gitleaks.toml 不会被自动加载，裸跑 `gitleaks git .` 会退回内置默认规则，
+#    从而漏掉 Android 签名口令（内置规则没有这一类），造成「0 泄露」的假阴性。
+#
+# 背景：本仓库历史提交（v1.0.4 ~ v1.8.1）曾包含 Android 签名 keystore 与明文口令，
+#       已在 v1.8.2 移出仓库，并在 SIGNING.md「已知历史遗留问题」中完整披露。
+
+title = "comic-realm secret scan"
+
+[extend]
+useDefault = true
+
+# ── 自定义规则 ─────────────────────────────────────────────
+
+[[rules]]
+id = "android-signing-password"
+description = "Android/Gradle 签名口令明文"
+regex = '''(?i)(storePassword|keyPassword)\s*=\s*["']([^"']{4,})["']'''
+secretGroup = 2
+keywords = ["storepassword", "keypassword"]
+
+[[rules]]
+id = "generic-hardcoded-password"
+description = "通用硬编码口令（password / secret / token / api key 赋值）"
+regex = '''(?i)(password|passwd|secret|token|api_key|apikey|access_key)\s*[:=]\s*["']([A-Za-z0-9_\-!@#$%^&*+]{8,})["']'''
+secretGroup = 2
+entropy = 2.5
+keywords = ["password", "passwd", "secret", "token", "api_key", "apikey", "access_key"]
+
+[[rules]]
+id = "private-key-block"
+description = "私钥文件内容"
+regex = '''-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----'''
+keywords = ["BEGIN", "PRIVATE KEY"]
+
+# ── 允许项：已披露的历史问题 + 构建产物 ────────────────────
+
+[allowlist]
+description = "已披露的历史项 + 构建产物目录（非源码，避免误报）"
+
+paths = [
+  '''android/app/release-keystore.jks''',
+  '''(^|/)\.dart_tool/''',
+  '''(^|/)build/''',
+  '''(^|/)\.gradle/''',
+  '''(^|/)tools/bin/''',
+]
+
+# 旧签名口令：仅出现在 CHANGELOG / SIGNING.md 的问题记录里，不是可复用凭证
+regexTarget = "line"
+regexes = [
+  '''comicrealm2026''',
+]
