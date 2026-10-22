@@ -80,9 +80,11 @@ android {
         if (hasCompleteSigning) {
             create("release") {
                 storeFile = file(releaseStoreFile!!)
-                storePassword = releaseStorePassword!!
+                // 签名口令必须由上方从环境变量 / key.properties 读取的变量注入，严禁硬编码明文——
+                // 否则会覆盖 CI 注入的 GitHub Secrets 导致云端签名失败。
+                storePassword = releaseStorePassword!! // gitleaks:allow
                 keyAlias = releaseKeyAlias!!
-                keyPassword = releaseKeyPassword!!
+                keyPassword = releaseKeyPassword!! // gitleaks:allow
             }
             logger.lifecycle("[comic-realm] release 签名已从环境变量 / key.properties 载入")
         } else {

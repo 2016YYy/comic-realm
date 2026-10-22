@@ -16,7 +16,7 @@ useDefault = true
 
 [[rules]]
 id = "android-signing-password"
-description = "Android/Gradle 签名口令明文"
+description = "Android/Gradle 签名口令明文（带引号赋值）"
 regex = '''(?i)(storePassword|keyPassword)\s*=\s*["']([^"']{4,})["']'''
 secretGroup = 2
 keywords = ["storepassword", "keypassword"]
@@ -35,6 +35,15 @@ description = "私钥文件内容"
 regex = '''-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----'''
 keywords = ["BEGIN", "PRIVATE KEY"]
 
+# Kotlin DSL 的写法是不带引号的（storePassword = releaseStorePassword!!），
+# 上面的带引号规则覆盖不到，故补充本规则；合法变量引用以白名单 / gitleaks:allow 豁免。
+[[rules]]
+id = "gradle-unquoted-signing-password"
+description = "Gradle/Kotlin 未加引号的签名口令裸赋值（应改用 releaseStorePassword / releaseKeyPassword 变量，由环境变量注入）"
+regex = '''(?i)\b(storePassword|keyPassword)\s*=\s*([A-Za-z0-9_!@#$%^&*+\-]{8,})'''
+secretGroup = 2
+keywords = ["storepassword", "keypassword"]
+
 # ── 允许项：已披露的历史问题 + 构建产物 ────────────────────
 
 [allowlist]
@@ -48,8 +57,14 @@ paths = [
   '''(^|/)tools/bin/''',
 ]
 
-# 旧签名口令：仅出现在 CHANGELOG / SIGNING.md 的问题记录里，不是可复用凭证
+# 旧签名口令（第 1 代，已作废）：仅出现在 CHANGELOG / SIGNING.md 的问题记录与
+# v1.0.4 ~ v1.8.1 的历史提交里，不是可复用凭证。
+# 合法变量引用：build.gradle.kts 从环境变量 / key.properties 读取后回写的
+# releaseStorePassword / releaseKeyPassword，不是口令明文；历史提交中的同类
+# 变量引用行同样需要豁免，否则发版闸门会误报、阻断发布。
 regexTarget = "line"
 regexes = [
   '''comicrealm2026''',
+  '''releaseStorePassword''',
+  '''releaseKeyPassword''',
 ]

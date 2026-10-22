@@ -21,13 +21,13 @@ fi
 
 # 只扫暂存内容，避免因历史遗留问题阻塞日常提交
 CFG_ARGS=()
-[ -f "$REPO_ROOT/gitleaks.toml" ] && CFG_ARGS=(--config "$REPO_ROOT/gitleaks.toml")
+[ -f "$REPO_ROOT/.gitleaks.toml" ] && CFG_ARGS=(--config "$REPO_ROOT/.gitleaks.toml")
 
 echo "[secret-scan] 检查暂存文件中的敏感信息…"
 if ! "$EXE" git --staged --redact -v "${CFG_ARGS[@]}"; then
   echo "" >&2
   echo "[secret-scan] ✘ 暂存区发现敏感信息，提交已被阻止。" >&2
-  echo "            确认是误报可加 # gitleaks:allow 或更新 gitleaks.toml 白名单。" >&2
+  echo "            确认是误报可加 # gitleaks:allow 或更新 .gitleaks.toml 白名单。" >&2
   exit 1
 fi
 echo "[secret-scan] ✔ 未发现泄露"

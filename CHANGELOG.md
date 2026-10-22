@@ -28,6 +28,14 @@
   - 发版构建：`build.yml` 的 `secret-scan` 前置关卡，不通过则不构建
 - 修复 gitleaks 配置文件名导致的**假阴性**：配置须为 `.gitleaks.toml`（带点）才会被自动加载，
   否则退回内置默认规则、漏掉 Android 签名口令
+- 修正 `.githooks/pre-commit` 误引用 `gitleaks.toml`（无点），使其正确加载 `.gitleaks.toml`；
+  此前本地提交闸门会退回默认规则、漏掉 Android 签名口令扫描
+- `android/app/build.gradle.kts` 签名块补充说明注释，并对合法变量引用行标记 `// gitleaks:allow`：
+  口令由环境变量 / `key.properties` 注入，严禁硬编码（硬编码会覆盖 CI 注入的 GitHub Secrets，
+  导致云端签名失败）
+- gitleaks 新增**未加引号赋值**检测规则：原规则只匹配带引号的 `storePassword = "..."`，
+  覆盖不到 Kotlin DSL 的未加引号写法；合法变量引用（含历史提交中的同类行）已在
+  `.gitleaks.toml` 白名单登记豁免，不影响发版闸门
 
 ### 📝 说明
 
