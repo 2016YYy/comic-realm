@@ -134,16 +134,22 @@ jobs:
           # 换证书时必须同步更新这里，否则构建会因指纹不符而失败——
           # 这是刻意设计的：防止「以为换了证书、实际仍用旧证书」。
           EXPECTED_SHA256="FD:FB:16:F1:7F:16:CE:4F:DD:30:03:7B:25:2C:6D:E4:44:18:13:7F:15:6B:A9:77:29:4B:31:33:1A:2E:8C:BC"
+          # apksigner 输出的是「小写、无冒号」格式（如 fdfb16f1...），
+          # 而文档与配置里习惯写「大写、带冒号」。比较前统一归一化，
+          # 否则正确的证书也会被判为不符（v2.0.0 首次构建即因此误判失败）。
+          normalize() { echo "$1" | tr -d ':' | tr 'A-F' 'a-f'; }
+          EXPECTED_NORM="$(normalize "$EXPECTED_SHA256")"
           FAILED=0
           for apk in build/app/outputs/flutter-apk/app-*-release.apk; do
             echo "== $apk =="
             "$APKSIGNER" verify --print-certs "$apk" | grep -E 'Signer #1 certificate DN|contributes to [0-9]+ signature'
             ACTUAL=$("$APKSIGNER" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)
-            if [ "$ACTUAL" != "$EXPECTED_SHA256" ]; then
+            ACTUAL_NORM="$(normalize "$ACTUAL")"
+            if [ "$ACTUAL_NORM" != "$EXPECTED_NORM" ]; then
               echo "::error::$apk 证书指纹不符！期望 $EXPECTED_SHA256，实际 $ACTUAL"
               FAILED=1
             else
-              echo "   ✔ 证书指纹与新证书一致"
+              echo "   ✔ 证书指纹与新证书一致（$ACTUAL）"
             fi
           done
           if [ "$FAILED" -ne 0 ]; then
